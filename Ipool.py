@@ -18,6 +18,7 @@ import requests
 # Collection Ipool 
 # {'Ip' : '', 'ipAdr' : '', 'port' : '', 'noName' : '', 'httpType' : ''}
 
+
 class Ippool(object):
 
 	def __init__(self):
@@ -27,6 +28,10 @@ class Ippool(object):
 							"http": "http://111.90.179.42:8080",
 							"https": "https://120.77.254.116:3128",
 						}
+		self.http = ['http://www.123cha.com/', 'http://www.ip5.me/', 'http://www.cip.cc/', 'http://ip.catr.cn/', 'http://service.cstnet.cn/ip',
+					'http://www.64460.com/', 'http://ip.siteloop.net/', 'https://www.ipqi.co/', 'http://ip.t086.com/', 'http://ip.chaxun.la/',
+					'http://ip.siteloop.net/', 'http://ip.cha127.com/']
+		self.https = ['https://www.ipip.net/', 'https://www.boip.net/', 'https://www.slogra.com/', 'https://www.ipqi.co/#', 'https://dns.aizhan.com/']
 
 	def connectTOdb(self):
 		conn = MongoClient('127.0.0.1', 27017)
@@ -80,55 +85,50 @@ class Ippool(object):
 		# 	ips.append(i)
 		# print(ips)
 
-		
+
 		return ips
 		
 	def test_Ip(self, ipDict):
-		error = ''
-		try:
-			test_Ip = ipDict['ipAdr']
-			port = ipDict['port']
-			noname = ipDict['noName']
-			httpType = ipDict['httpType'].lower()
-			if httpType == 'http':
-				proxies = {'http' : 'http://%s:%s' %(test_Ip, port)}
-				# test_url = 'http://2017.ip138.com/ic.asp' 
-				# test_url = 'http://ip.chinaz.com//'
-				# http://www.123cha.com/
-				# http://www.ip5.me/
-				# http://www.cip.cc/
-				# http://ip.catr.cn/
-				# http://service.cstnet.cn/ip
-				# http://www.64460.com/
-				# http://ip.siteloop.net/
-				# https://www.ipqi.co/
-				# http://ip.t086.com/
-				# http://ip.chaxun.la/
-				# http://ip.siteloop.net/
-				test_url = 'http://ip.cha127.com/'
-			else:
-				proxies = {'https' : 'https://%s:%s' %(test_Ip, port)}
-				# test_url = 'https://ip.cn/'
-				# https://www.ipip.net/
-				# https://www.boip.net/
-				# https://www.slogra.com/
-				# https://www.ipqi.co/#
-				test_url = 'https://dns.aizhan.com/'
 
-			response = requests.get(url = test_url, headers = self.headers, proxies = proxies, timeout = 5)
-			error = response.status_code
-			if response.status_code == 200:
-				response.encoding = 'gbk'
-				result = re.search('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', response.text)
-				result = result.group(0)
-				if test_Ip == result:
-					# 使用mongoDB入库
-					print('验证%s://%s:%s通过，可以入库' %(httpType, test_Ip, port))
-				else:
-					print('验证%s://%s:%s失败....' %(httpType, test_Ip, port))
-					pass
+		test_Ip = ipDict['ipAdr']
+		port = ipDict['port']
+		noname = ipDict['noName']
+		httpType = ipDict['httpType'].lower()
+
+		if httpType == 'http':
+			proxies = {'http' : 'http://%s:%s' %(test_Ip, port)}
+			for i in self.http:
+				try:
+					response = requests.get(url = i, headers = self.headers, proxies = proxies, timeout = 5)
+					if response.status_code == 200: break
+				except Exception as e:
+					print('网站不可用..')
+					continue
+		else:
+			proxies = {'https' : 'https://%s:%s' %(test_Ip, port)}
+			for i in self.https:
+				try:
+					response = requests.get(url = i, headers = self.headers, proxies = proxies, timeout = 5)
+					if response.status_code == 200: break
+				except Exception as e:
+					print('网站不可用..')
+					continue
+
+		try:
+			# if response.status_code == 200:
+			response.encoding = 'gbk'
+			result = re.search('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', response.text)
+			result = result.group(0)
+			if test_Ip == result:
+				# 使用mongoDB入库
+				print('验证%s://%s:%s通过，可以入库' %(httpType, test_Ip, port))
+			else:
+				print('验证%s://%s:%s失败....' %(httpType, test_Ip, port))
+				pass
 		except Exception as e:
-			print(e)
+			print(e)			
+		
+		
 		
 
 	def test_Many_Ip(self):
