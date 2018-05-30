@@ -1,7 +1,10 @@
 # -*- coding:utf-8
 from lxml import etree
 from pymongo import MongoClient
+from gevent import monkey,pool; monkey.patch_socket()
+from province import get_spell
 
+import gevent
 import time, datetime
 import user_agent_Pool
 import requests
@@ -9,7 +12,6 @@ import re
 import execjs
 import json
 import random
-
 
 useful_url = { 	
 				# 双随机抽查结果信息 : getDrRaninsResUrl
@@ -95,12 +97,12 @@ mainContent_url_list = ['allAlterInfoUrl', 'allShareHolderDetailInfoUrl', 'allPu
 user_agent = random.choice(user_agent_Pool.user_agent)
 
 headers = {
-			'User-Agent' : 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50',
+			'User-Agent' : user_agent,
 			'Connection' : 'keep-alive',
 			'Cache-Control' : 'max-age=0',}
 
 headers2 = {
-			'User-Agent' : 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50',
+			'User-Agent' : user_agent,
 			'Accept' : 'application/json, text/javascript, */*; q=0.01',
 			'Cache-Control' : 'max-age=0',
 			'Upgrade-Insecure-Requests': '1'}
@@ -1291,7 +1293,12 @@ def clear_and_formateJs_test(js):
 	# except Exception as e:
 
 def clear_and_formateJs(jst = None, times = 0):
-	
+	'''
+		author: sam
+		整理cookies加密函数
+		并取得cookies
+
+	'''
 	js = jst.replace('\x00', '')
 	cat = ''
 	ctx = ''
@@ -1352,7 +1359,8 @@ def clear_and_formateJs(jst = None, times = 0):
 			f.write(js.encode('utf-8', 'ignore').decode('utf-8', 'ignore')+'\n')
 			f.write(cat.encode('utf-8', 'ignore').decode('utf-8', 'ignore')+'\n')
 			f.write(s.encode('utf-8', 'ignore').decode('utf-8', 'ignore')+'\n')
-		raise e
+		return clear_and_formateJs(jst = jst, times = times)
+		print(e)
 
 def getTarget_cookies(tail_url=None, province='www', times = 0):
 	'''
@@ -1416,66 +1424,69 @@ def find_business_from_db(business = None):
 	return data
 
 def test():
-		s = '''
-			var _2p=function(){setTimeout('location.href=location.pathname+location.search.replace(/[\?|&]captcha-challenge/,\'\')',1500);document.cookie='__jsl_clearance=1527470647.484|0|'+(function(){var _1w=[function(_2p){return _2p},function(_1w){return _1w},(function(){var _2p=document.createElement('div');_2p.innerHTML='_19';_2p=_2p.firstChild.href;var _1w=_2p.match(/https?:\/\//)[0];_2p=_2p.substr(_1w.length).toLowerCase();return function(_1w){for(var _19=0;_19<_1w.length;_19++){_1w[_19]=_2p.charAt(_1w[_19])};return _1w.join('')}})(),function(_2p){return eval('String.fromCharCode('+_2p+')')}],_19=[[-~[((+!!!window.headless)|-~(+!!!window.headless))+4]],'B',(window['callP'+'hantom']+[]).charAt(~~!{})+([][[]]+[]+[[]][0]).charAt(2),'4',[{}+[]+[]][0].charAt(-~[-~(+!{})-~(+!{})])+(window['callP'+'hantom']+[]).charAt(~~!{})+({}+[[]][0]).charAt((-~[]<<-~[])-~(+!{})-~(-~[]-~[-~(+!{})-~(+!{})])),[(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],(2+[]+[]),'U',[[-~(+!{})]+[-~(+!{})]],[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+(((+!!!window.headless)|-~(+!!!window.headless))+4+[[]][0]),((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+((+!!!window.headless)-~[((+!!!window.headless)|-~(+!!!window.headless))+4]+[]+[[]][0])],'r',[(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],'bl',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],'Om',[[-~(+!{})]+[-~(+!{})]+(((+!!!window.headless)|2)+[[]][0])],[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])],(2+[]+[]),'sy8',[(((+!!!window.headless)|2)+[[]][0])+(((+!!!window.headless)|-~(+!!!window.headless))+4+[[]][0])],'3',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+[-~[((+!!!window.headless)|-~(+!!!window.headless))+4]]]];for(var _2p=0;_2p<_19.length;_2p++){_19[_2p]=_1w[[0,1,0,1,0,2,0,1,2,3,1,2,1,3,1,3,2,0,1,3,1,3][_2p]](_19[_2p])};return _19.join('')})()+';Expires=Mon, 28-May-18 02:24:07 GMT;Path=/;'};if((function(){try{return !!window.addEventListener;}catch(e){return false;}})()){document.addEventListener('DOMContentLoaded',_2p,false)}else{document.attachEvent('onreadystatechange',_2p)}		
-		'''
-		functionName = re.search(r'var (.*)=function\(\){setTimeout', s).group(1) 	
-		# rex = re.compile('setTimeout.*, \d{1,4}\);', flags = re.MULTILINE)
-		# s = re.sub(rex, '', s)
-		# 清理结尾
-		# rex2 = re.compile('if\(\(function\(\).*')
-		# s = re.sub(rex2, '', s)
+	'''
+		just a test!!
+	'''
+	s = '''
+		var _2p=function(){setTimeout('location.href=location.pathname+location.search.replace(/[\?|&]captcha-challenge/,\'\')',1500);document.cookie='__jsl_clearance=1527470647.484|0|'+(function(){var _1w=[function(_2p){return _2p},function(_1w){return _1w},(function(){var _2p=document.createElement('div');_2p.innerHTML='_19';_2p=_2p.firstChild.href;var _1w=_2p.match(/https?:\/\//)[0];_2p=_2p.substr(_1w.length).toLowerCase();return function(_1w){for(var _19=0;_19<_1w.length;_19++){_1w[_19]=_2p.charAt(_1w[_19])};return _1w.join('')}})(),function(_2p){return eval('String.fromCharCode('+_2p+')')}],_19=[[-~[((+!!!window.headless)|-~(+!!!window.headless))+4]],'B',(window['callP'+'hantom']+[]).charAt(~~!{})+([][[]]+[]+[[]][0]).charAt(2),'4',[{}+[]+[]][0].charAt(-~[-~(+!{})-~(+!{})])+(window['callP'+'hantom']+[]).charAt(~~!{})+({}+[[]][0]).charAt((-~[]<<-~[])-~(+!{})-~(-~[]-~[-~(+!{})-~(+!{})])),[(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],(2+[]+[]),'U',[[-~(+!{})]+[-~(+!{})]],[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+(((+!!!window.headless)|-~(+!!!window.headless))+4+[[]][0]),((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+((+!!!window.headless)-~[((+!!!window.headless)|-~(+!!!window.headless))+4]+[]+[[]][0])],'r',[(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],'bl',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],'Om',[[-~(+!{})]+[-~(+!{})]+(((+!!!window.headless)|2)+[[]][0])],[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])],(2+[]+[]),'sy8',[(((+!!!window.headless)|2)+[[]][0])+(((+!!!window.headless)|-~(+!!!window.headless))+4+[[]][0])],'3',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+[-~[((+!!!window.headless)|-~(+!!!window.headless))+4]]]];for(var _2p=0;_2p<_19.length;_2p++){_19[_2p]=_1w[[0,1,0,1,0,2,0,1,2,3,1,2,1,3,1,3,2,0,1,3,1,3][_2p]](_19[_2p])};return _19.join('')})()+';Expires=Mon, 28-May-18 02:24:07 GMT;Path=/;'};if((function(){try{return !!window.addEventListener;}catch(e){return false;}})()){document.addEventListener('DOMContentLoaded',_2p,false)}else{document.attachEvent('onreadystatechange',_2p)}		
+	'''
+	functionName = re.search(r'var (.*)=function\(\){setTimeout', s).group(1) 	
+	# rex = re.compile('setTimeout.*, \d{1,4}\);', flags = re.MULTILINE)
+	# s = re.sub(rex, '', s)
+	# 清理结尾
+	# rex2 = re.compile('if\(\(function\(\).*')
+	# s = re.sub(rex2, '', s)
 
-		rex2 = re.compile('GMT;.*')
-		s = re.sub(rex2, 'GMT;\' \nreturn cookie};', s)
-		s = s.replace('document.cookie', 'var cookie')
-		rex3 = re.compile('var %s=document.create.*firstChild.href;' %(functionName))
-		s = re.sub(rex3, 'var %s="http://www.gsxt.gov.cn/";' %(functionName), s)
-		rex = re.compile('setTimeout.*\d{1,4}\);')
-		s = re.sub(rex, '', s)
-		# s = s.replace('GMT;Path=/;\'};','GMT;\' \n return cookie};')
+	rex2 = re.compile('GMT;.*')
+	s = re.sub(rex2, 'GMT;\' \nreturn cookie};', s)
+	s = s.replace('document.cookie', 'var cookie')
+	rex3 = re.compile('var %s=document.create.*firstChild.href;' %(functionName))
+	s = re.sub(rex3, 'var %s="http://www.gsxt.gov.cn/";' %(functionName), s)
+	rex = re.compile('setTimeout.*\d{1,4}\);')
+	s = re.sub(rex, '', s)
+	# s = s.replace('GMT;Path=/;\'};','GMT;\' \n return cookie};')
+	
+	ctx_s = ''
+	with open('./jsbeautify.js', 'r') as f:
+		for line in f.readlines():
+			ctx_s+= line	
+
+	ctx = execjs.compile(ctx_s)	
+	s = ctx.call('js_beautify', s, 4, ' ')
+	rex4 = re.compile("window\['callP'.*'hantom'\]", flags = re.MULTILINE)
+	rex5 = re.compile("window\['__p'.*'hantom'.*'as'\]", flags = re.MULTILINE)
+	rex6 = re.compile("window\['_p'.*'hantom'\]", flags = re.MULTILINE)
+	rex7 = re.compile("window.*headless", flags = re.MULTILINE)
+	rex9 = re.compile("D.headless", flags = re.MULTILINE)
+	rex8 = re.compile("return cookie};\n.*", flags = re.MULTILINE)
+	s = re.sub(rex4, 'undefined', s)
+	s = re.sub(rex5, 'undefined', s)
+	s = re.sub(rex6, 'undefined', s)
+	s = re.sub(rex7, 'undefined', s)
+	s = re.sub(rex9, 'undefined', s)
+	s = re.sub(rex8, 'return cookie};', s)
+	s = s + '\n function ssss(){ return %s() }' %(functionName)
+	# rex4 = re.compile("window\['callP'.*'hantom'\]", flags = re.MULTILINE)
+	# s = s.replace("window['__p' + 'hantom' + 'as']", "undefined")
+	# s = s.replace("window['_p' + 'hantom']", "undefined")
+	# s = s.replace('window.headless', 'undefined')
+	# s = re.sub(rex4, 'undefined', s)
+	# s = s.replace("window['callP' + 'hantom']", "undefined")
+	print(s)
+	# ctx_s = ''
+	# with open('./jsbeautify.js', 'r') as f:
+	# 	for line in f.readlines():
+	# 		ctx_s+= line
 		
-		ctx_s = ''
-		with open('./jsbeautify.js', 'r') as f:
-			for line in f.readlines():
-				ctx_s+= line	
+	# ctx = execjs.compile(ctx_s)	
+	# ss = ctx.call('js_beautify', ss, 4, ' ')
+	# print(ss.replace("window['__p' + 'hantom' + 'as']", 'false'))
+	# s = '<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>外<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>国<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>(<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>地<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>区)企业'
+	# ss = '<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>32<div class="dp">MzIwNTk0MDAwMTU3Nw==</div><div class="dp">MzIwNTk0MDAwMTU3Nw==</div>0594<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>0<div class="dp">MzIwNTk0MDAwMTU3Nw==</div><div class="dp">MzIwNTk0MDAwMTU3Nw==</div>00<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>15<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>7<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>7<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>62'
 
-		ctx = execjs.compile(ctx_s)	
-		s = ctx.call('js_beautify', s, 4, ' ')
-		rex4 = re.compile("window\['callP'.*'hantom'\]", flags = re.MULTILINE)
-		rex5 = re.compile("window\['__p'.*'hantom'.*'as'\]", flags = re.MULTILINE)
-		rex6 = re.compile("window\['_p'.*'hantom'\]", flags = re.MULTILINE)
-		rex7 = re.compile("window.*headless", flags = re.MULTILINE)
-		rex9 = re.compile("D.headless", flags = re.MULTILINE)
-		rex8 = re.compile("return cookie};\n.*", flags = re.MULTILINE)
-		s = re.sub(rex4, 'undefined', s)
-		s = re.sub(rex5, 'undefined', s)
-		s = re.sub(rex6, 'undefined', s)
-		s = re.sub(rex7, 'undefined', s)
-		s = re.sub(rex9, 'undefined', s)
-		s = re.sub(rex8, 'return cookie};', s)
-		s = s + '\n function ssss(){ return %s() }' %(functionName)
-		# rex4 = re.compile("window\['callP'.*'hantom'\]", flags = re.MULTILINE)
-		# s = s.replace("window['__p' + 'hantom' + 'as']", "undefined")
-		# s = s.replace("window['_p' + 'hantom']", "undefined")
-		# s = s.replace('window.headless', 'undefined')
-		# s = re.sub(rex4, 'undefined', s)
-		# s = s.replace("window['callP' + 'hantom']", "undefined")
-		print(s)
-		# ctx_s = ''
-		# with open('./jsbeautify.js', 'r') as f:
-		# 	for line in f.readlines():
-		# 		ctx_s+= line
-			
-		# ctx = execjs.compile(ctx_s)	
-		# ss = ctx.call('js_beautify', ss, 4, ' ')
-		# print(ss.replace("window['__p' + 'hantom' + 'as']", 'false'))
-		# s = '<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>外<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>国<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>(<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>地<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>区)企业'
-		# ss = '<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>32<div class="dp">MzIwNTk0MDAwMTU3Nw==</div><div class="dp">MzIwNTk0MDAwMTU3Nw==</div>0594<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>0<div class="dp">MzIwNTk0MDAwMTU3Nw==</div><div class="dp">MzIwNTk0MDAwMTU3Nw==</div>00<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>15<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>7<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>7<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>62'
-
-		# ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
-		# altItem_CN = re.sub(ctx, '', ss)
-		# print(altItem_CN)
+	# ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
+	# altItem_CN = re.sub(ctx, '', ss)
+	# print(altItem_CN)
 
 def get_all_info(business, tail, cookies, province = 'www', times = 0):
 	# business = '上海永巧塑料有限公司'
@@ -1519,6 +1530,8 @@ def get_all_info(business, tail, cookies, province = 'www', times = 0):
 		get_getDrRaninsResUrl(cookies, business, province)
 		# 动产抵押登记信息
 		get_mortRegInfoUrl(cookies, business, province)
+		# 全部股权出质登记信息
+		get_allStakQualitInfoUrl(company, province)
 		# 变更信息
 		get_alterInfoUrl(cookies, business, province)
 		# 列入经营异常名录信息
@@ -1533,10 +1546,10 @@ def get_all_info(business, tail, cookies, province = 'www', times = 0):
 			get_all_info(business, tail, cookies, province, times)
 
 def hack_in_gsxt(searchword ,province):
-	headers = {
-			'User-Agent' : 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50',
-			'Referer' : 'http://%s.gsxt.gov.cn/' %(province)
-			}
+	# headers = {
+	# 		'User-Agent' : 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50',
+	# 		'Referer' : 'http://%s.gsxt.gov.cn/' %(province)
+	# 		}
 	response, cookies = getTarget_cookies('', province=province)
 	
 	try:
@@ -1552,7 +1565,6 @@ def hack_in_gsxt(searchword ,province):
 		token = get_token('www', timestamp)
 
 		# assert 1 > 5, print(response2.text)
-
 		# validate获取
 		user = 'wangang3'
 		password = 'xieyueying1'
@@ -1571,9 +1583,7 @@ def hack_in_gsxt(searchword ,province):
 			print(validate_data)
 		else:
 			print(validate_data['msg'])
-		# status = 'ok'
-		# validate = '1'
-		# 106726214
+
 		token = get_token('www',  timestamp)
 		if status == 'ok':
 			# 信息入口数据
@@ -1632,7 +1642,15 @@ def get_token(province, timeStamp):
 	token = int(s) ^ 536870911
 	return token
 
-hack_in_gsxt('网易', 'www')
+def mutil_process(company_list):
+	pool = pool.Pool(10)
+	threads = [p.spawn(hack_in_gsxt(company, get_spell(company)) for company in company_list]
+	gevent.joinall(threads)
+	
+
+
+
+
 
 # js = r'''
 # <script>var x="split@0xFF@window@X@0@@challenge@@innerHTML@onreadystatechange@Path@B0@GMT@div@1@else@charAt@replace@toString@@Expires@@4@pathname@34@8@createElement@z@JgSe0upZ@3@@kn@cookie@@fromCharCode@@@555@@2@@new@WU@@match@substr@Cn@6i@@firstChild@join@href@rOm9XFMtA3QKV7nYsPGT4lifyWwkq5vcjH2IdxUoCbhERLaz81DNB6@18@parseInt@0xEDB88320@search@charCodeAt@@captcha@@@Mon@attachEvent@1500@__jsl_clearance@@@2F@@false@1527474814@@try@@function@@@Array@length@return@@eval@setTimeout@addEventListener@reverse@@for@var@chars@1sW@@@@@a@33@f@@catch@while@@headless@if@g@03@@String@36@@@@DOMContentLoaded@@@e@location@@d@28@B@RegExp@May@@toLowerCase@@https@document".replace(/@*$/,"").split("@"),y="1t A=1g(){1o('1V.Q=1V.o+1V.V.i(/[\\?|&]10-7/,\\'\\')',15);28.x='16=1c.C|5|'+(1g(){1t 17=[1g(A){1l A},1g(17){1l 17},(1g(){1t A=28.r('e');A.9='<1A Q=\\'/\\'>1h</1A>';A=A.O.Q;1t 17=A.J(/27?:\\/\\//)[5];A=A.K(17.1k).25();1l 1g(17){1s(1t 1h=5;1h<17.1k;1h++){17[1h]=A.h(17[1h])};1l 17.P('')}})(),1g(A){1l 1n('1M.z('+A+')')}],1h=['w',(E+[]+[]),'M',([]-{}+[]).h(-~(+!{})),[((+!!!3.1H)-~[((+!!!3.1H)|-~(+!!!3.1H))+n]+[]+[[]][5])+((+[])+[]+[])],'1v',[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'19%',(E+[]+[]),'21',[(n+[]+[[]][5])],'4',[(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])+((+[])+[]+[])],'s',(-~{}/(+!{})+[[]][5]).h(E+(-~(+!{})+[~~{}])/[(-~[]<<-~[])]),'H',[[-~[((+!!!3.1H)|-~(+!!!3.1H))+n]]+(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][5]),(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])+((+[])+[]+[])],[(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'L',(E+[]+[]),[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],(E+[]+[]),'c',[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'u',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][5])+[-~[((+!!!3.1H)|-~(+!!!3.1H))+n]]]];1s(1t A=5;A<1h.1k;A++){1h[A]=17[[f,5,f,5,u,f,u,f,5,f,E,f,u,f,5,f,u,E,f,5,u,5,f,u,f,u][A]](1h[A])};1l 1h.P('')})()+';l=13, 20-23-S 1K:1B:p d;b=/;'};1I((1g(){1e{1l !!3.1p;}1E(1U){1l 1b;}})()){28.1p('1R',A,1b)}g{28.14('a',A)}",f=function(x,y){var a=0,b=0,c=0;x=x.split("");y=y||99;while((a=x.shift())&&(b=a.charCodeAt(0)-77.5))c=(Math.abs(b)<13?(b+48.5):parseInt(a,36))+y*c;return c},z=f(y.match(/\w/g).sort(function(x,y){return f(x)-f(y)}).pop());while(z++)try{eval(y.replace(/\b\w+\b/g, function(y){return x[f(y,z)-1]||("_"+y)}));break}catch(_){}</script>
