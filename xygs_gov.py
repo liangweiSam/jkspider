@@ -187,9 +187,10 @@ def logger(func):
 	def wrapper(*args, **kwargs):
 		name = func.__name__
 		try:
-			l.info('%s_ * strat *' %(name))
-			return func(*args)
-			l.info('%s_ * done *' %(name))
+                    l.info('%s_ * strat *' %(name))
+                    result =  func(*args, **kwargs)
+                    l.info('%s_ * done *' %(name))
+                    return result
 		except Exception as e:
 			l.error('%s %s' %(name, e))
 
@@ -1450,7 +1451,7 @@ class crawl_xygs(object):
 			else:
 				if times < 20:
 					times = times + 1
-					return self.clear_and_formateJs(jst, times = times)
+					return self.clear_and_formateJs(jst=jst, times=times)
 				else:
 					raise MyException('---整理Js---')
 		except Exception as e:
@@ -1460,7 +1461,7 @@ class crawl_xygs(object):
 				f.write(s.encode('utf-8', 'ignore').decode('utf-8', 'ignore')+'\n')
 			if times < 20:
 				times = times + 1
-				return self.clear_and_formateJs(jst, times = times)
+				return self.clear_and_formateJs(jst=jst, times=times)
 			else:
 				raise MyException('---整理Js---%s' %(e))
 			
@@ -1748,7 +1749,7 @@ class crawl_xygs(object):
 		# ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
 		# altItem_CN = re.sub(ctx, '', ss)
 		# print(altItem_CN)
-
+                
 	'''	
 	def mutil_process(self, company_list):
 		p = pool.Pool(10)
@@ -1757,14 +1758,14 @@ class crawl_xygs(object):
 	'''
 	
 if __name__ == '__main__':
-	xygs_spider = crawl_xygs()
+        xygs_spider = crawl_xygs()
 	# xygs_spider.get_all_info('东莞市全港五金模具有限公司', '/{939E3CA8F4F8CD25188C969AA78B712DB93EC3FEF27559CF6D613DA92E076DF9E36448DE7C708D653A668ED12C36CBC7BFE153C9A228A1048E3C8F2AA00EE91EE9F4E9F4E97F88D79B2000A9666A77E952C4C8564B564B477A677A676B9C35AD5A472DC08CD3F3EEB13E6892BBFDF7CAE61CC4DE82BFBD23BD061B20DAB0EFEDD0FC0649B3D986BD40A8F70A8D774A48BF4855485548-1527841788405}', get_spell('东莞市全港五金模具有限公司'))
 	# shift('asdsfs')
-	js = '''
+        js = '''
 		<script>var x="Gk@charAt@23@@@Fk@onreadystatechange@replace@length@firstChild@attachEvent@challenge@reverse@8@@0xEDB88320@try@D@May@@@createElement@z@substr@@18@@addEventListener@e@@window@36@@55@@JgSe0upZ@charCodeAt@@function@while@@f@1500@0@809@fromCharCode@YBX@@toString@pathname@0xFF@DOMContentLoaded@@split@RegExp@1527058529@new@g@29@rOm9XFMtA3QKV7nYsPGT4lifyWwkq5vcjH2IdxUoCbhERLaz81DNB6@@toLowerCase@var@@document@@Wed@@3@Expires@@eval@a@cookie@@parseInt@@String@join@@@match@@@search@Array@@chars@Z@@@@else@@if@for@1@@@location@@vZ@@innerHTML@B@@@setTimeout@C@__jsl_clearance@false@@href@@6@@GMT@div@Y@catch@captcha@return@d@https@07@@Path@".replace(/@*$/,"").split("@"),y="2b l=1d(){44('3m.49=3m.1o+3m.37.8(/[\\?|&]4h-c/,\\'\\')',1h);2d.2m='46=24.1j|1i|'+(1d(){2b l=[(-~-~~~[]+[[]][1i]),((-~[]+[(-~{}<<-~{})]>>(-~{}<<-~{}))+[]+[]),(-~-~~~[]+[[]][1i])+[(+[])],[-~[]]+[-~[4b]],[-~[]]+(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{}))+[]+[[]][1i]),(-~-~~~[]+[[]][1i])+(-~-~~~[]+[[]][1i]),[(+[])],(-~-~~~[]+[[]][1i])+[-~[]],((-~{}+[(-~{}<<-~{})])/[(-~{}<<-~{})]+[]),((+!+[])+(+!+[])+(+!+[])+(+!+[])+[]+[[]][1i]),[-~[4b]],((+!+[])+(+!+[])+(+!+[])+(+!+[])-~-~~~[]+(+!+[])+(+!+[])+(+!+[])+[]+[[]][1i]),[-~[]]+((+!+[])+(+!+[])+(+!+[])+(+!+[])-~-~~~[]+(+!+[])+(+!+[])+(+!+[])+[]+[[]][1i]),[-~[]]+[((-~{}<<-~{})<<(-~{}<<-~{}))],[-~[]]+((-~{}+[(-~{}<<-~{})])/[(-~{}<<-~{})]+[]),[-~[]]+((+!+[])+(+!+[])+(+!+[])+(+!+[])+[]+[[]][1i]),[-~[]]+[(+[])],[((-~{}<<-~{})<<(-~{}<<-~{}))],(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{}))+[]+[[]][1i]),[-~[]],[-~[]]+((-~[]+[(-~{}<<-~{})]>>(-~{}<<-~{}))+[]+[]),[-~[]]+(-~-~~~[]+[[]][1i]),[-~[]]+[-~[]]];3i(2b 3k=1i;3k<l.9;3k++){l[3k]=['n',[((-~{}<<-~{})<<(-~{}<<-~{}))],'45',((-~[]+[(-~{}<<-~{})]>>(-~{}<<-~{}))+[]+[])+(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{}))+[]+[[]][1i]),(-~-~~~[]+[[]][1i]),'41','%','6',({}+[]+[[]][1i]).2(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{})))+(-~-~~~[]+[[]][1i]),(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{}))+[]+[[]][1i]),'4f','i',((-~[]+[(-~{}<<-~{})]>>(-~{}<<-~{}))+[]+[]),'%',[!{}+[[]][1i]][1i].2((-~{}|-~-~~~[])),'3b','1l',[[(+!+[])+(+!+[])]/(+[])+[]+[]][1i].2((+!{}))+[-~[]],[!-[]+[]+[]][1i].2(~~''),'1','3o',((-~[(-~{}<<-~{})])/(+[])+[[]][1i]).2(2h),((-~{}+[(-~{}<<-~{})])/[(-~{}<<-~{})]+[])+[-~[4b]]][l[3k]]};4i l.31('')})()+';2i=2f, 3-j-10 4l:18:27 4d;4n=/;'};3h((1d(){h{4i !!15.12;}4g(13){4i 47;}})()){2d.12('20',l,47)}3f{2d.b('7',l)}",f=function(x,y){var a=0,b=0,c=0;x=x.split("");y=y||99;while((a=x.shift())&&(b=a.charCodeAt(0)-77.5))c=(Math.abs(b)<13?(b+48.5):parseInt(a,36))+y*c;return c},z=f(y.match(/\w/g).sort(function(x,y){return f(x)-f(y)}).pop());while(z++)try{eval(y.replace(/\\b\\w+\\b/g, function(y){return x[f(y,z)-1]||("_"+y)}));break}catch(_){}</script>
 	'''
-
-	print(xygs_spider.clear_and_formateJs(js))
+        print('s')
+        print(xygs_spider.clear_and_formateJs(js))
 
 
 
@@ -1772,6 +1773,5 @@ if __name__ == '__main__':
 # <script>var x="split@0xFF@window@X@0@@challenge@@innerHTML@onreadystatechange@Path@B0@GMT@div@1@else@charAt@replace@toString@@Expires@@4@pathname@34@8@createElement@z@JgSe0upZ@3@@kn@cookie@@fromCharCode@@@555@@2@@new@WU@@match@substr@Cn@6i@@firstChild@join@href@rOm9XFMtA3QKV7nYsPGT4lifyWwkq5vcjH2IdxUoCbhERLaz81DNB6@18@parseInt@0xEDB88320@search@charCodeAt@@captcha@@@Mon@attachEvent@1500@__jsl_clearance@@@2F@@false@1527474814@@try@@function@@@Array@length@return@@eval@setTimeout@addEventListener@reverse@@for@var@chars@1sW@@@@@a@33@f@@catch@while@@headless@if@g@03@@String@36@@@@DOMContentLoaded@@@e@location@@d@28@B@RegExp@May@@toLowerCase@@https@document".replace(/@*$/,"").split("@"),y="1t A=1g(){1o('1V.Q=1V.o+1V.V.i(/[\\?|&]10-7/,\\'\\')',15);28.x='16=1c.C|5|'+(1g(){1t 17=[1g(A){1l A},1g(17){1l 17},(1g(){1t A=28.r('e');A.9='<1A Q=\\'/\\'>1h</1A>';A=A.O.Q;1t 17=A.J(/27?:\\/\\//)[5];A=A.K(17.1k).25();1l 1g(17){1s(1t 1h=5;1h<17.1k;1h++){17[1h]=A.h(17[1h])};1l 17.P('')}})(),1g(A){1l 1n('1M.z('+A+')')}],1h=['w',(E+[]+[]),'M',([]-{}+[]).h(-~(+!{})),[((+!!!3.1H)-~[((+!!!3.1H)|-~(+!!!3.1H))+n]+[]+[[]][5])+((+[])+[]+[])],'1v',[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'19%',(E+[]+[]),'21',[(n+[]+[[]][5])],'4',[(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])+((+[])+[]+[])],'s',(-~{}/(+!{})+[[]][5]).h(E+(-~(+!{})+[~~{}])/[(-~[]<<-~[])]),'H',[[-~[((+!!!3.1H)|-~(+!!!3.1H))+n]]+(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][5]),(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])+((+[])+[]+[])],[(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'L',(E+[]+[]),[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],(E+[]+[]),'c',[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'u',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][5])+[-~[((+!!!3.1H)|-~(+!!!3.1H))+n]]]];1s(1t A=5;A<1h.1k;A++){1h[A]=17[[f,5,f,5,u,f,u,f,5,f,E,f,u,f,5,f,u,E,f,5,u,5,f,u,f,u][A]](1h[A])};1l 1h.P('')})()+';l=13, 20-23-S 1K:1B:p d;b=/;'};1I((1g(){1e{1l !!3.1p;}1E(1U){1l 1b;}})()){28.1p('1R',A,1b)}g{28.14('a',A)}",f=function(x,y){var a=0,b=0,c=0;x=x.split("");y=y||99;while((a=x.shift())&&(b=a.charCodeAt(0)-77.5))c=(Math.abs(b)<13?(b+48.5):parseInt(a,36))+y*c;return c},z=f(y.match(/\w/g).sort(function(x,y){return f(x)-f(y)}).pop());while(z++)try{eval(y.replace(/\b\w+\b/g, function(y){return x[f(y,z)-1]||("_"+y)}));break}catch(_){}</script>
 # 	'''
 # assert 1 > 5, print(clear_and_formateJs_test(jst = js))
-
 # cookies 可以复用！！
 
