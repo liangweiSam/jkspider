@@ -4,6 +4,7 @@ from pymongo import MongoClient
 from gevent import monkey,pool; monkey.patch_socket()
 from province import get_spell
 from log import log
+from ProxyPool import ProxyPool
 
 import gevent
 import time, datetime
@@ -14,6 +15,8 @@ import execjs
 import json
 import random
 import os, sys
+import xlrd, xlwt
+
 
 
 def clear_and_formateJs_test():
@@ -200,15 +203,23 @@ class MyException(Exception):
 	def __init__(self, message):
 		self.message = message
 
-@logger
 def shift(x):
 	t = x[0:1]
 	x = x[1:]
 	s = 5/0
 	return t, x
 
-
-
+def getDataFromEx():
+	workBook = xlrd.open_workbook(r'SpiderFiles/所有报告单new.xls')
+	sheet1_name = workBook.sheet_names()[0]
+	sheet1 = workBook.sheet_by_name(sheet1_name)
+	rows = sheet1.col_values(0)[1:]
+	new_rows = []
+	for i in rows:
+		if re.search('.+?(公司|厂|加油站|店|集团|所|中心|院)', i) is not None:
+			s = re.search('.+?(公司|厂|加油站|店|集团|所|中心|院)', i).group(0).strip()			
+			new_rows.append(s)
+	return new_rows
 
 class crawl_xygs(object):
 
@@ -287,13 +298,18 @@ class crawl_xygs(object):
 						# 全部分支机构信息
 						'branchUrl' : '',
 						} 
-
 		self.useful_url_list = ['spotCheckInfoUrl', 'insInvinfoUrl', 'assistUrl', 'mortRegInfoUrl','insAlterstockinfoUrl','keyPersonUrl', 'IllInfoUrl', 'entBusExcepUrl', 'punishmentDetailInfoUrl',
 							 'otherLicenceDetailInfoUrl', 'simpleCancelUrl', 'insProPledgeRegInfoUrl', 'insPunishmentinfoUrl', 'insLicenceInfoNull', 'anCheYearInfo', 'trademarkInfoUrl', 'proPledgeRegInfoUrl', 
 							 'branchUrl', 'alterInfoUrl', 'liquidationUrl', 'shareholderUrl', 'insLicenceinfoUrl', 'getDrRaninsResUrl', 'allTrademarkUrl']
 
 		self.mainContent_url_list = ['allAlterInfoUrl', 'allShareHolderDetailInfoUrl', 'allPunishmentInfoUrl', 'allOtherLicenceInfoUrl', 'allMortRegInfoUrl', 'allStakQualitInfoUrl', 'allGtAlterInfoUrl', 'branchUrl']
-
+		p = ProxyPool()
+		init_ip = p.get_IP('http')
+		ip = init_ip['ip'] + ':' + init_ip['ip_port']
+		self.proxy = {
+					'http' : ip,
+					'https' : ip,
+					}
 		self.user_agent = random.choice(user_agent_Pool.user_agent)
 		self.headers = {
 					'User-Agent' : self.user_agent,
@@ -308,7 +324,6 @@ class crawl_xygs(object):
 	# 		func(*args)
 	# 		self.logger.info('* finish *')
 
-	@logger
 	def parser_page(self, html=None):
 		'''
 			get api from page
@@ -339,13 +354,13 @@ class crawl_xygs(object):
 		else:
 			return False
 
-	@logger		
+			
 	def get_maincontent_url(self, province = 'www', times = 0):
 		'''
 			return no page website
 		'''
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['allTrademarkUrl']
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		# response = requests.get(url, headers = headers, cookies = cookies)
 		html = etree.HTML(response.text)
 		if html is not None:
@@ -362,10 +377,10 @@ class crawl_xygs(object):
 			else:
 				raise MyException('---超过限定次数---')
 
-	@logger
+	@logger			
 	def get_branchUrl(self, company, province='www', times = 0):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.mainContent_url['branchUrl']
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		# response = requests.get(url, headers = headers, cookies = cookies)
 		try:
 			if self.is_json(response.text):
@@ -392,18 +407,17 @@ class crawl_xygs(object):
 					times+= 1
 					self.get_branchUrl(company, province, times)
 				else:
-					raise MyException('---超过限定次数----.' )
+					raise MyException('%s---超过限定次数----.' %(company))
 		except Exception as e:
-			raise MyException('---分支机构信息----%s.' %e)
+			raise MyException('%s---分支机构信息----%s.' %(e, company))
 			# print('---分支机构信息----Error.')
 			# print(e)
 			# return	
 
-	
-	@logger		
+	@logger
 	def get_allStakQualitInfoUrl(self, company, province='www', times=0):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.mainContent_url['allStakQualitInfoUrl']
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			if self.is_json(response.text):
 				print('股权出质登记信息')
@@ -441,17 +455,16 @@ class crawl_xygs(object):
 					times+= 1
 					self.get_allStakQualitInfoUrl(company. province, times)
 				else:
-					raise MyException('---超过限定次数---')
+					raise MyException('%s---超过限定次数---' %(company))
 		except Exception as e:
-			raise MyException('---股权出质登记信息---%s' %(e))
+			raise MyException('%s---股权出质登记信息---%s' %(e, company))
 			# print('----股权出质登记信息----Error.')
 			# print(e)
 			# return
-
 	@logger		
 	def get_getDrRaninsResUrl(self, company, province='www', times = 0):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['getDrRaninsResUrl']
-		response = self.session.get(url, headers = self.headers)	
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)	
 		try:
 			if self.is_json(response.text):
 				print('双随机抽查结果信息')
@@ -463,7 +476,7 @@ class crawl_xygs(object):
 						for i in range(i, int(json_data['totalPage'])):
 							# new_url = 'http://%s.gsxt.gov.cn' %(province)+detail_url+'?draw=%s&start=%s&length=%s&_=%s' %(i+1, i*5, 5, time.time()*1000)
 							form_data = {'draw' : i+1, 'start' : i*5, 'length' : 5}
-							response2 = self.session.get(url, headers = self.headers, data = form_data)
+							response2 = self.session.get(url, headers = self.headers, data = form_data, proxies = self.proxy)
 							datas+= response2.json()['data']
 					# 存入list				
 					getDrRanins_infos = []
@@ -490,15 +503,14 @@ class crawl_xygs(object):
 					# print(getDrRanins_infos)
 					self.insert_into_db('getDrRanins_info', getDrRanins_infos)						
 		except Exception as e:
-			raise MyException('---双随机抽查结果信息---%s' %(e))
+			raise MyException('%s---双随机抽查结果信息---%s' %(company, e))
 			# print('---双随机抽查结果信息----Error.')
 			# print(e)
 			# return
 
-	@logger		
 	def get_getDrRanins_details(self, detail_url, province='www', times = 0):
 		url = 'http://%s.gsxt.gov.cn' %(province)+detail_url
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		# response = requests.get(url, headers = headers, cookies = cookies)
 		try:
 			# 检查json格式
@@ -511,7 +523,7 @@ class crawl_xygs(object):
 					if json_data['totalPage'] > 1:
 						for i in range(i, int(json_data['totalPage'])):
 							new_url = 'http://%s.gsxt.gov.cn' %(province)+detail_url+'?draw=%s&start=%s&length=%s&_=%s' %(i+1, i*5, 5, time.time()*1000)
-							response2 = self.session.get(new_url, headers = self.headers)
+							response2 = self.session.get(new_url, headers = self.headers, proxies = self.proxy)
 							datas+= response2.json()['data']
 					# 存入list中
 					getDrRanins_details = []
@@ -528,10 +540,10 @@ class crawl_xygs(object):
 			# print('---双随机抽查结果信息详情----Error.')
 			# print(e)
 			# return
-	@logger	
+	@logger		
 	def get_insAlterstockinfoUrl(self, company, province='www', times = 0):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['insAlterstockinfoUrl']
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			if self.is_json(response.text):
 				print('股权变更信息')
@@ -541,7 +553,7 @@ class crawl_xygs(object):
 					if json_data['totalPage'] > 1:
 						for i in range(1, int(json_data['totalPage'])):
 							form_data = {'draw' : i+1, 'start' : i*5, 'length' : 5}
-							response2 = self.session.post(url, headers = self.headers, data = form_data)
+							response2 = self.session.post(url, headers = self.headers, data = form_data, proxies = self.proxy)
 							datas+= response2.json()['data']
 					insAlterstock_infos = []
 					for data in datas:
@@ -566,17 +578,16 @@ class crawl_xygs(object):
 					print('try : %s ' %(times))
 					self.get_insAlterstockinfoUrl(company, province, times)
 				else:
-					raise MyException('---超过限定次数---')	
+					raise MyException('%s---超过限定次数---' %(company))	
 		except Exception as e:
-			raise MyException('---股权变更信息---%s' %(e))	
+			raise MyException('%s---股权变更信息---%s' %(e, company))	
 			# print('---股权变更信息----Error.')
 			# print(e)
 			# return
-
 	@logger		
 	def get_anCheYearInfo(self, company, province='www', times = 0):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['anCheYearInfo']
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		null = ''
 		try:
 			print('年报信息：')
@@ -604,10 +615,9 @@ class crawl_xygs(object):
 					print('try : %s ' %(times))
 					self.get_anCheYearInfo(company, province, times)		
 				else:
-					raise MyException('---超过限定次数---%s' %(e))
+					raise MyException('%s---超过限定次数---%s' %(e, company))
 				# print('---年报信息---, 爬取失败..')
 	
-	@logger
 	def get_anCheYearInfo_detail(self, anCheId, province='www'):
 		info_type = ['corp-query-entprise-info-annualAlter-', 'corp-query-entprise-info-AnnSocsecinfo-',
 					'corp-query-entprise-info-baseinfo-', 'corp-query-entprise-info-sponsor-', 'corp-query-entprise-info-vAnnualReportBranchProduction-',
@@ -619,15 +629,14 @@ class crawl_xygs(object):
 			all_details.append(self.get_anCheYearInfo_AnnSocsecinfo(anCheId, province))
 			return all_details	
 		except Exception as e:
-			raise MyException('---年报信息详情---%s' %(e))
+			raise MyException('%s---年报信息详情---%s' %(e, company))
 
-	@logger		
 	def get_anCheYearInfo_baseinfo(self, anCheId, province='www'):
 		ty = 'corp-query-entprise-info-baseinfo-'
 		url = 'http://%s.gsxt.gov.cn/' %(province)+ty+anCheId+'.html'
 		details = {}
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			if response.text is not None:
 				json_data = json.loads(response.text)
 				if json_data['data'] is not None and len(json_data['data']) > 0:
@@ -665,13 +674,12 @@ class crawl_xygs(object):
 		except Exception as e:
 			raise MyException('年报-基本信息 %s' %(e))
 
-	@logger		
 	def get_anCheYearInfo_sponsor(self, anCheId, province='www'):
 		ty = 'corp-query-entprise-info-sponsor-'
 		url = 'http://%s.gsxt.gov.cn/' %(province)+ty+anCheId+'.html'
 		details = {}
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			if response.text is not None:
 				json_data = json.loads(response.text)
 				if json_data['data'] is not None and len(json_data['data']) > 0:
@@ -693,13 +701,12 @@ class crawl_xygs(object):
 		except Exception as e:
 			raise MyException('年报-股东及出资信息 %s' %(e))
 
-	@logger		
 	def get_anCheYearInfo_AnnSocsecinfo(self, anCheId, province='www'):
 		ty = 'corp-query-entprise-info-AnnSocsecinfo-'
 		url = 'http://%s.gsxt.gov.cn/' %(province)+ty+anCheId+'.html'
 		details = {}
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			if response.text is not None:
 				json_data = json.loads(response.text)
 				if json_data['data'] is not None and len(json_data['data']) > 0:
@@ -718,13 +725,13 @@ class crawl_xygs(object):
 					return details
 		except Exception as e:
 			raise MyException('年报-社保信息 %s' %(e))
-	@logger		
+
 	def get_vAnnualReportBranchProduction(self, anCheId, province='www'):
 		ty = 'corp-query-entprise-info-vAnnualReportBranchProduction-'
 		url = 'http://%s.gsxt.gov.cn/' %(province)+ty+anCheId+'.html'
 		details = {}
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			if response.text is not None:
 				json_data = json.loads(response.text)
 				if json_data['data'] is not None and len(json_data['data']) > 0:
@@ -768,7 +775,7 @@ class crawl_xygs(object):
 	def get_entBusExcepUrl(self, company, province='www', times = 0):
 		maxtimes = 30
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['entBusExcepUrl'] 
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			print('列入经营异常名录信息：')
 			if self.is_json(response.text):
@@ -798,27 +805,26 @@ class crawl_xygs(object):
 					if times < maxtimes:
 						times = times + 1
 						time.sleep(0.2)
-						self.sessionget_entBusExcepUrl(cookies, company, province, times)
+						self.get_entBusExcepUrl(company, province, times)
 					else:
-						raise MyException('数据为None---经营异常名录信息--- 超过尝试次数')
+						raise MyException('数据为None---经营异常名录信息---超过尝试次数--%s' %(company))
 			else:
 				if times < maxtimes:
 					times = times + 1
 					time.sleep(0.2)
-					print('非json ---经营异常名录信息--- trying %d..' %(times))
-					self.sessionget_entBusExcepUrl(cookies, company, province, times)
+					print('非json ---经营异常名录信息--- trying %d..%s' %(times, company))
+					self.get_entBusExcepUrl(cookies, company, province, times)
 				else:
-					raise MyException('访问失败---超过尝试次数')
+					raise MyException('访问失败---超过尝试次数---%s' %(company))
 					# print('访问失败,次数：%d！！' %(times))
 		except Exception as e:
-			raise MyException('---列入经营异常名录信息---')
+			raise MyException('%s---列入经营异常名录信息---%s' %(e, company))
 			# print('---列入经营异常名录信息---')
 			# print(e)
-
-	@logger		
+	@logger
 	def get_mortRegInfoUrl(self, company, province='www'):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.mainContent_url['allMortRegInfoUrl'] 
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			json_data = json.loads(response.text)
 			datas = json_data['data']
@@ -848,11 +854,10 @@ class crawl_xygs(object):
 				self.insert_into_db('mort_reg_info', mort_reg_infos)
 				# print(mort_reg_infos)
 		except Exception as e:
-			raise MyException('---动产抵押登记信息---%s' %(e))
+			raise MyException('%s---动产抵押登记信息---%s' %(e, company))
 			# print('---动产抵押登记信息---')
 			# print(e)
 
-	@logger		
 	def mortreg_detail_info(self, morReg_Id, province='www'):
 		info_type = ['corp-query-entprise-info-mortregpersoninfo-', 'corp-query-entprise-info-mortCreditorRightInfo-',
 					'corp-query-entprise-info-mortGuaranteeInfo-', 'corp-query-entprise-info-getMortAltItemInfo-',
@@ -861,20 +866,20 @@ class crawl_xygs(object):
 		try:
 			for ty in info_type:
 				url = 'http://%s.gsxt.gov.cn/' %(province)+ty+morReg_Id+'.html' 
-				response = self.session.get(url, headers = self.headers)	
+				response = self.session.get(url, headers = self.headers, proxies = self.proxy)	
 				if response.text is not None:
 					print('details . . . . ')
 					json_data = json.loads(response.text)
 					details[ty[25:-1]] = json_data['data']
 			return details
 		except Exception as e:
-			raise MyException('---动产抵押详情---%s' %(e))
+			raise MyException('%s---动产抵押详情---%s' %(e))
 			# print('动产抵押详情, 爬取失败.....')
 	
-	@logger			
+	@logger	
 	def get_insInvinfoUrl(self, company, province='www'):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['insInvinfoUrl'] 
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		json_data = json.loads(response.text)
 		ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
 		try:
@@ -936,12 +941,12 @@ class crawl_xygs(object):
 				# print(insInv_infos)
 				self.insert_into_db('insInv_info', insInv_infos)
 		except Exception as e:
-			raise MyException('股东及出资信息 %s' %(e))
+			raise MyException('%s--股东及出资信息--%s' %(e, company))
 
 	@logger		
 	def get_insLicenceinfoUrl(self, company, province='www'):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['insLicenceinfoUrl'] 
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			json_data = json.loads(response.text)
 			datas = json_data['data']
@@ -960,14 +965,13 @@ class crawl_xygs(object):
 			# print(insLicenceinfos)
 			self.insert_into_db('insLicence_info', insLicenceinfos)
 		except Exception as e:
-			raise MyException('基本信息中的—行政许可信息---%s' %(e))
+			raise MyException('%s---基本信息中的—行政许可信息---%s' %(e, company))
 			# print(e)
-	
-	@logger	
+	@logger
 	def get_spotCheck_info(self, company, province='www'):
 
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['spotCheckInfoUrl'] 
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			datas = response.json()['data']
 			print('抽查抽检信息：')	
@@ -984,7 +988,7 @@ class crawl_xygs(object):
 			# print(spotChecks)
 			self.insert_into_db('spotCheck_info', spotChecks)
 		except Exception as e:
-			raise MyException('---抽查抽检信息---%s' %(e))
+			raise MyException('%s---抽查抽检信息---%s' %(e, company))
 
 	@logger		
 	def get_shareHolder_info(self, company, province='www', times=0):
@@ -992,7 +996,7 @@ class crawl_xygs(object):
 			get shareHolder_info from shareHolderUrl
 		'''
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.mainContent_url['allShareHolderDetailInfoUrl'] 
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			if self.is_json(response.text):
 				datas = response.json()['data']
@@ -1022,20 +1026,21 @@ class crawl_xygs(object):
 			else:
 				if times < 20:
 					times+= 1
+					time.sleep(0.5)
 					self.get_shareHolder_info(company, province, times)
 				else:
-					raise MyException('---股东---尝试次数过多！')
+					raise MyException('---股东---尝试次数过多！%s' %(company))
 		except Exception as e:
-			raise MyException('---股东---%s' %(e))
+			raise MyException('%s---股东---%s' %(e,company))
 
-	@logger
+	@logger		
 	def get_key_person_info(self, company, province='www'):
 		'''
 			parser key_person_info
 		'''
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['keyPersonUrl'] 
 		# assert 1>5, 
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			if self.is_json(response.json()):
 				datas = response.json()['data']
@@ -1053,16 +1058,16 @@ class crawl_xygs(object):
 					names.append(name_dict)
 				self.insert_into_db('keyperson_info', names)
 		except Exception as e:
-			raise MyException('---关键人物--- %s' %(e))
+			raise MyException('%s---关键人物--- %s' %(e, company))
 	
-	@logger
+	@logger	
 	def get_otherLicenceDetailInfoUrl(self, company, province='www'):
 		'''
 			parser otherLicenceDetailInfo
 		'''
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.mainContent_url['allOtherLicenceInfoUrl']
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			json_data = json.loads(response.text)
 			datas = json_data['data']
 			ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
@@ -1089,16 +1094,16 @@ class crawl_xygs(object):
 				# print(other_licence_infos)
 				self.insert_into_db('other_licence_info', other_licence_infos)	
 		except Exception as e:
-			raise MyException('---行政许可信息---%s' %(e))
-
-	@logger		
+			raise MyException('%s---行政许可信息---%s' %(e, company))
+	
+	@logger
 	def get_liquidationUrl(self, company, province='www'):
 		'''
 			parser liquidation
 		'''
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['liquidationUrl'] 
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			datas = response.json()['data']
 			ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
 			print('清算信息:')
@@ -1115,16 +1120,16 @@ class crawl_xygs(object):
 			# print(liqs)
 			self.insert_into_db('liquidation_info', liqs)
 		except Exception as e:
-			raise MyException('---清算信息---%s' %(e))
-	
-	@logger		
+			raise MyException('%s---清算信息---%s' %(e, company))
+
+	@logger	
 	def get_alterInfoUrl(self, company, province='www', times = 0):
 		'''
 			parser alterInfo
 		'''
 
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.mainContent_url['allAlterInfoUrl'] 
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
 			total_data = response.text
 			if self.is_json(total_data):
@@ -1161,7 +1166,7 @@ class crawl_xygs(object):
 						print('变更信息 :trying %d..' %(times))
 						self.get_alterInfoUrl(cookies, company, province, times)
 					else:
-						raise MyException('--变更信息--尝试次数过多')
+						raise MyException('--变更信息--尝试次数过多--%s' %(company))
 						# print('访问失败,次数：%d！！' %(times))
 			else:
 				if times < 30:
@@ -1174,21 +1179,21 @@ class crawl_xygs(object):
 		except Exception as e:
 			raise MyException('--变更信息--%s' %(e))
 
-	@logger	
+	@logger		
 	def get_trademarkInfoUrl(self, company, province='www'):
 		'''
 			parser trademark
 		'''
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['trademarkInfoUrl']
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			total_data = response.json()
 			datas = total_data['data']
 			ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
 			if  datas is not None:
 				print('商标信息:')
 				for i in range(1, total_data['totalPage']):
-					responses = self.session.get(url+'?start=%d' %(i*4), headers = self.headers)
+					responses = self.session.get(url+'?start=%d' %(i*4), headers = self.headers, proxies = self.proxy)
 					trade_data = responses.text
 					trade_data = json.loads(trade_data)
 					if trade_data['data'] is not None:
@@ -1217,16 +1222,16 @@ class crawl_xygs(object):
 				# print(trade_marks)
 				self.insert_into_db('trademark_info', trade_marks)
 		except Exception as e:
-			raise MyException('---商标信息--- %s' %(e))
+			raise MyException('%s---商标信息--- %s' %(e, company))
 	
-	@logger		
+	@logger	
 	def get_punishmentDetailInfoUrl(self, company, province='www'):
 		'''
 			parser punishmentDetailInfoUrl
 		'''
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.mainContent_url['allPunishmentInfoUrl']
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			if self.is_json(response.text):
 				json_data = json.loads(response.text)
 				datas = json_data['data']
@@ -1253,7 +1258,7 @@ class crawl_xygs(object):
 					# print(punishment_infos)
 					self.insert_into_db('punishment_info', punishment_infos)
 		except Exception as e:
-			raise MyException('---行政处罚信息---%s' %(e))
+			raise MyException('%s---行政处罚信息---%s' %(e, company))
 
 	@logger		
 	def get_assistUrl(self, company, province='www'):
@@ -1262,7 +1267,7 @@ class crawl_xygs(object):
 		'''
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.useful_url['assistUrl'] 
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			datas = response.json()['data']
 			ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
 			print('司法协助信息：')
@@ -1288,7 +1293,7 @@ class crawl_xygs(object):
 				# print(assist)
 			self.insert_into_db('assist_info', assists)
 		except Exception as e:
-			raise MyException('---司法协助信息--- %s' %(e))
+			raise MyException('%s---司法协助信息--- %s' %(e, company))
 
 	@logger		
 	def get_assistUrl_details(self, parent_Id, province='www'):
@@ -1297,7 +1302,7 @@ class crawl_xygs(object):
 		'''
 		url = 'http://%s.gsxt.gov.cn/corp-query-entprise-info-judiciaryStockfreeze-%s.html' %(province, parent_Id)
 		try:
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			if self.is_json(response.text):
 				json_data = json.loads(response.text)
 				detail = []
@@ -1333,7 +1338,7 @@ class crawl_xygs(object):
 						detail.append(details)
 					return detail
 		except Exception as e:
-			raise MyException('---司法协助详细信息---%s' %(e))
+			raise MyException('%s---司法协助详细信息---%s' %(e, company))
 
 	@logger		
 	def parser_business_license_info(self, html = None):
@@ -1392,7 +1397,6 @@ class crawl_xygs(object):
 			else:
 				raise MyException('---基本信息---')
 
-	@logger
 	def clear_and_formateJs(self, jst, times = 0):
 		'''
 			author: sam
@@ -1419,7 +1423,7 @@ class crawl_xygs(object):
 			if re.search(r'var (.*)=function\(\){setTimeout', s) is not None:
 				functionName = re.search(r'var (.*)=function\(\){setTimeout', s).group(1)
 				# 清理settime
-				rex = re.compile('setTimeout.*\d{1,4}\);')
+				rex = re.compile(r'setTimeout.*\d{1,4}\);')
 				s = re.sub(rex, '', s)
 				# 清理结尾
 				rex2 = re.compile('GMT;.*')
@@ -1429,6 +1433,8 @@ class crawl_xygs(object):
 				rex3 = re.compile('var %s=document.create.*firstChild.href;' %(functionName))
 				s = re.sub(rex3, 'var %s="http://www.gsxt.gov.cn/";' %(functionName), s)
 				s = s.replace('GMT;Path=/;\'};', 'GMT;\' \nreturn cookie};')
+				
+
 				ctx_s = ''
 				# 美化JS以便解密
 				with open('./jsbeautify.js', 'r') as f:
@@ -1436,14 +1442,23 @@ class crawl_xygs(object):
 						ctx_s+= line	
 				ctx = execjs.compile(ctx_s)	
 				s = ctx.call('js_beautify', s, 4, '')
-				rex8 = re.compile("return cookie};\n.*", flags = re.MULTILINE)
+
+				rex8 = re.compile(r"return cookie};(.*)", flags = re.MULTILINE)
+				rex9 = re.compile(r"return cookie};\n.*", flags = re.MULTILINE)
 				# 清理未定义的Windows
 				s = s.replace("window['__p' + 'hantom' + 'as']", "undefined")
 				s = s.replace("window['_p' + 'hantom']", "undefined")
 				s = s.replace('window.headless', 'undefined')
-				s = s.replace("window['callP' + 'hantom']", "undefined")
+				s = s.replace(r"window['callP' + 'hantom']", "undefined")
+
+				s = s.replace("window['__p'+'hantom'+'as']", "undefined")
+				s = s.replace("window['_p'+'hantom']", "undefined")
+				s = s.replace('window.headless', 'undefined')
+				s = s.replace(r"window['callP'+'hantom']", "undefined")
+
 				s = s.replace("D.headless", "undefined")
 				s = re.sub(rex8, 'return cookie};', s)
+				s = re.sub(rex9, 'return cookie};', s)
 				s = s + '\n function ssss(){ return %s() }' %(functionName)
 				ctx_2 = execjs.compile(s)
 				cookies = ctx_2.call('ssss')
@@ -1452,20 +1467,19 @@ class crawl_xygs(object):
 				if times < 20:
 					times = times + 1
 					return self.clear_and_formateJs(jst=jst, times=times)
-				else:
-					raise MyException('---整理Js---')
+				# else:
+				# 	raise MyException('---整理Js---')
 		except Exception as e:
 			with open('../512Error/%s.html' %(time.time()), 'w', encoding='utf-8') as f:
 				f.write(js.encode('utf-8', 'ignore').decode('utf-8', 'ignore')+'\n')
 				f.write(cat.encode('utf-8', 'ignore').decode('utf-8', 'ignore')+'\n')
 				f.write(s.encode('utf-8', 'ignore').decode('utf-8', 'ignore')+'\n')
-			if times < 20:
+			if times < 5:
 				times = times + 1
 				return self.clear_and_formateJs(jst=jst, times=times)
 			else:
 				raise MyException('---整理Js---%s' %(e))
-			
-
+	
 	@logger		
 	def getTarget_cookies(self, tail_url=None, province='www', times = 0):
 		'''
@@ -1473,7 +1487,7 @@ class crawl_xygs(object):
 		'''
 		try:
 			url = 'http://%s.gsxt.gov.cn' %(province)+tail_url
-			response = self.session.get(url, headers = self.headers)
+			response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			set_cookies = response.headers['set-cookie'].split(';')
 			encry_cookies = self.clear_and_formateJs(response.text).split(';')
 			name, value = encry_cookies[0].split('=', 1)
@@ -1482,27 +1496,36 @@ class crawl_xygs(object):
 
 			self.session.cookies['__jsl_clearance'] = value
 
-			response2 = self.session.get(url, headers = self.headers)
+			response2 = self.session.get(url, headers = self.headers, proxies = self.proxy)
 			while response2.status_code != 200:
 				print(response2.status_code)
-				response2 = self.session.get(url, headers = self.headers)
+				response2 = self.session.get(url, headers = self.headers, proxies = self.proxy)
 				times+= 1
 				if times > 20:
+					print('重新尝试中...')
 					raise MyException('--首页_cookies--超过尝试次数---')
 					break
 			return response2, cookies
 		except Exception as e:
 			raise MyException('--首页_cookies--%s' %(e))
 
-	@logger
+	@logger		
 	def get_all_info(self, business, tail,  province = 'www', times = 0):
 		# business = '上海永巧塑料有限公司'
 		# tail = '/%7BD3937CA5B4F58D285881D697E7863120F93383F3B27819C22D6C7DA46E0A2DF4A36908D33C7DCD687A6BCEDC6C3B8BCAFFEC13C4E225E109CE31CF27E003A95F8CDC8CDC8C7AA9F9A9F9A9F9A9F9A92B77277781D16B37D383D38F0DFB392295F1FABDCDAC1B8ED9C8B8F79A49247402B21705B57FC8B8F7247424742474-1527474744125%7D'
 		# js 江苏 苏州 昆山 无锡
 		try:
 			url = 'http://%s.gsxt.gov.cn' %(province)+tail
-			response, c = self.getTarget_cookies(tail, province)
-			# response = self.session.get(url, headers = self.headers)
+			# response, c = self.getTarget_cookies(tail, province)
+			get_time = 0
+			while True:
+				response = self.session.get(url, headers = self.headers, proxies = self.proxy)
+				html = etree.HTML(response.text)
+				if len(html.xpath('.//div[@id="url"]/script')) > 0:
+					break
+				if get_time > 5:
+					break
+				get_time+= 1
 
 			if response.status_code == 200:
 				# 取得大量Url
@@ -1560,7 +1583,7 @@ class crawl_xygs(object):
 				f.write('%s__%s' %(business, str(e)))
 			raise MyException('---爬取全部信息---%s' %(e))
 
-	@logger		
+	@logger
 	def hack_in_gsxt(self, searchword ,province):
 		# headers = {
 		# 		'User-Agent' : 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50',
@@ -1569,18 +1592,17 @@ class crawl_xygs(object):
 		response, cookies = self.getTarget_cookies('', province=province)
 		
 		try:
+			print(searchword)
 			# 获取验证码接口数据
 			timestamp = time.time()*1000
 			first_url = 'http://%s.gsxt.gov.cn/SearchItemCaptcha?t=%s' %(province, timestamp)
-			response2 = self.session.get(url = first_url, headers = self.headers)
+			response2 = self.session.get(url = first_url, headers = self.headers, proxies = self.proxy)
 			captcha_data = json.loads(response2.text)
 			success = captcha_data['success']
 			challenge = captcha_data['challenge']
 			gt = captcha_data['gt']
 
-			token = self.get_token('www', timestamp)
-
-			# assert 1 > 5, print(response2.text)
+			# token = self.get_token(province, timestamp)
 			# validate获取
 			user = 'wangang3'
 			password = 'xieyueying1'
@@ -1591,7 +1613,8 @@ class crawl_xygs(object):
 				model = 3
 
 			url = 'http://jiyanapi.c2567.com/shibie?user=%s&pass=%s&gt=%s&challenge=%s&referer=%s&return=json&model=%s&format=utf8' %(user, password, gt, challenge, host, model)		
-			validate_data = self.session.get(url, headers = self.headers).json()
+			validate_data = self.session.get(url, headers = self.headers, proxies = self.proxy).json()
+			status = ''
 			if validate_data['status'] == 'ok':
 				validate = validate_data['validate']
 				challenge = validate_data['challenge']
@@ -1599,29 +1622,37 @@ class crawl_xygs(object):
 				print(validate_data)
 			else:
 				print(validate_data['msg'])
-			token = self.get_token('www',  timestamp)
+			token = self.get_token(province,  timestamp)
 			if status == 'ok':
 				# 信息入口数据
 				search_data = {
 								'tab' : 'ent_tab', 'province' : '', 'geetest_challenge' : challenge, 'geetest_validate' : validate, 'geetest_seccode' : validate+'|jordan', 'token' : token, 'searchword' : searchword,
 							}
 				search_url = 'http://%s.gsxt.gov.cn/corp-query-search-1.html' %(province)
-				search_result = self.session.post(search_url, headers = self.headers, data = search_data)
-				print(search_data)
 
-				if search_result.text is not None or search_result.text is not '':
-					result_html = etree.HTML(search_result.text)
-					hrefs = result_html.xpath('.//a[@class="search_list_item db"]/@href')
-					tail = hrefs[0]
-					self.get_all_info(searchword, tail, cookies, province)						
-					print('finish...')
-				else:
-					print('fail...')
+				times = 0
+				while True:
+					search_result = self.session.post(search_url, headers = self.headers, data = search_data, proxies = self.proxy)
+					if search_result.text is not None or search_result.text is not '':
+						result_html = etree.HTML(search_result.text)
+						hrefs = result_html.xpath('.//a[@class="search_list_item db"]/@href')
+						if len(hrefs) > 0:
+							tail = hrefs[0]
+							self.get_all_info(searchword, tail, province)
+							print('finish...')
+							break
+						else:
+							if times > 3:	
+								print('hack_in_gsxt 超出尝试次数..')
+								break
+							times+= 1
+					else:
+						print('fail...')
 		except Exception as e:
 			raise e
-
-	@logger	
+	
 	def get_token(self, province, timeStamp):
+		# response, cookies = self.getTarget_cookies('', province=province)
 		# step 1
 		# 'function check_browser(data){ location_info = data.value ^ 536870911 } location_info = 4302122033;'
 		#  browser_version = check_browser;
@@ -1635,7 +1666,7 @@ class crawl_xygs(object):
 		timestamp = timeArray.tm_min+timeArray.tm_sec
 		# assert 1 > 5, print(timestamp)
 		url = 'http://%s.gsxt.gov.cn/corp-query-custom-geetest-image.gif?v=%d' %(province, timestamp)
-		response = self.session.get(url, headers = self.headers)
+		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		vs2 = eval(response.text)
 		# get location_info
 		s = ''
@@ -1646,7 +1677,7 @@ class crawl_xygs(object):
 		url2 = 'http://%s.gsxt.gov.cn/corp-query-geetest-validate-input.html?token=%s' %(province, location_info)
 
 		# get token 
-		response2 = self.session.get(url2, headers = self.headers)
+		response2 = self.session.get(url2, headers = self.headers, proxies = self.proxy)
 		vs3 = eval(response2.text)
 		s = ''
 		for i in vs3[-27:-18]:
@@ -1689,9 +1720,8 @@ class crawl_xygs(object):
 		'''
 			just a test!!
 		'''
-		s = '''
-			var _2p=function(){setTimeout('location.href=location.pathname+location.search.replace(/[\?|&]captcha-challenge/,\'\')',1500);document.cookie='__jsl_clearance=1527470647.484|0|'+(function(){var _1w=[function(_2p){return _2p},function(_1w){return _1w},(function(){var _2p=document.createElement('div');_2p.innerHTML='_19';_2p=_2p.firstChild.href;var _1w=_2p.match(/https?:\/\//)[0];_2p=_2p.substr(_1w.length).toLowerCase();return function(_1w){for(var _19=0;_19<_1w.length;_19++){_1w[_19]=_2p.charAt(_1w[_19])};return _1w.join('')}})(),function(_2p){return eval('String.fromCharCode('+_2p+')')}],_19=[[-~[((+!!!window.headless)|-~(+!!!window.headless))+4]],'B',(window['callP'+'hantom']+[]).charAt(~~!{})+([][[]]+[]+[[]][0]).charAt(2),'4',[{}+[]+[]][0].charAt(-~[-~(+!{})-~(+!{})])+(window['callP'+'hantom']+[]).charAt(~~!{})+({}+[[]][0]).charAt((-~[]<<-~[])-~(+!{})-~(-~[]-~[-~(+!{})-~(+!{})])),[(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],(2+[]+[]),'U',[[-~(+!{})]+[-~(+!{})]],[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+(((+!!!window.headless)|-~(+!!!window.headless))+4+[[]][0]),((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+((+!!!window.headless)-~[((+!!!window.headless)|-~(+!!!window.headless))+4]+[]+[[]][0])],'r',[(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],'bl',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][0])],'Om',[[-~(+!{})]+[-~(+!{})]+(((+!!!window.headless)|2)+[[]][0])],[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])],(2+[]+[]),'sy8',[(((+!!!window.headless)|2)+[[]][0])+(((+!!!window.headless)|-~(+!!!window.headless))+4+[[]][0])],'3',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][0])+[-~[((+!!!window.headless)|-~(+!!!window.headless))+4]]]];for(var _2p=0;_2p<_19.length;_2p++){_19[_2p]=_1w[[0,1,0,1,0,2,0,1,2,3,1,2,1,3,1,3,2,0,1,3,1,3][_2p]](_19[_2p])};return _19.join('')})()+';Expires=Mon, 28-May-18 02:24:07 GMT;Path=/;'};if((function(){try{return !!window.addEventListener;}catch(e){return false;}})()){document.addEventListener('DOMContentLoaded',_2p,false)}else{document.attachEvent('onreadystatechange',_2p)}		
-		'''
+		s = r'''
+			<script>var x="@@Path@new@https@@@03@36@chars@function@@hantom@0@@eval@replace@@href@for@5@parseInt@onreadystatechange@g@8@@1528077871@@@B@@search@d@04@substr@0xEDB88320@fromCharCode@false@ULG@@@captcha@31@else@@@setTimeout@@@@18@catch@C@D@if@@1500@GMT@@@window@@addEventListener@var@@Array@HC@@Expires@x@attachEvent@578@@@@0xFF@length@@toString@@firstChild@cookie@join@@@@callP@__jsl_clearance@div@1@@String@@@RegExp@createElement@2@a@@challenge@@return@Mon@DOMContentLoaded@@reverse@document@charAt@match@Jun@JgSe0upZ@while@R@@try@e@rOm9XFMtA3QKV7nYsPGT4lifyWwkq5vcjH2IdxUoCbhERLaz81DNB6@charCodeAt@toLowerCase@location@split@f@@@pathname@innerHTML@@k".replace(/@*$/,"").split("@"),y="144 243=15(){115('320.31=320.325+320.52.25(/[\\?|&]110-244/,\\'\\')',133);255.214='224=43.200|22|'+(15(){250 [[!!/!/+[]+[]][22].300(~~'')+(~~{}+[]+[[]][22])+({}+[]).300(-~{})+[[{}][230]+[]][22].300(-~(+!{}))+[141['223'+'21']+[]][22].300(~~'')+[-~(+!{})+([(-~!/!/<<-~!/!/)]+~~[]>>(-~!/!/<<-~!/!/))],'50',[41]+({}+[]+[]).300(33)+[141['223'+'21']+[]][22].300(~~''),'125',(!![{}][230]+[]+[[]][22]).300(-~{}+241),'103',({}+[[]][22]).300([(+!~~'')]+(~~{}+[]+[[]][22]))+(~~{}+[]+[[]][22]),'305',({}+[]).300(-~{})+[-~{}/~~''+[[]][22]][22].300(~~''),'154',({}+[]).300(-~{}),'151',[-~(+!{})+([(-~!/!/<<-~!/!/)]+~~[]>>(-~!/!/<<-~!/!/))]+[!!/!/+[]+[]][22].300(~~''),'332%',[-~{}+241],'130'].215('')})()+';153=251, 54-302-123 12:54:111 134;3=/;'};131((15(){311{250 !!141.143;}124(312){250 102;}})()){255.143('252',243,102)}112{255.155('35',243)}",f=function(x,y){var a=0,b=0,c=0;x=x.split("");y=y||99;while((a=x.shift())&&(b=a.charCodeAt(0)-77.5))c=(Math.abs(b)<13?(b+48.5):parseInt(a,36))+y*c;return c},z=f(y.match(/\w/g).sort(function(x,y){return f(x)-f(y)}).pop());while(z++)try{eval(y.replace(/\b\w+\b/g, function(y){return x[f(y,z)-1]||("_"+y)}));break}catch(_){}</script>		'''
 		functionName = re.search(r'var (.*)=function\(\){setTimeout', s).group(1) 	
 		# rex = re.compile('setTimeout.*, \d{1,4}\);', flags = re.MULTILINE)
 		# s = re.sub(rex, '', s)
@@ -1728,50 +1758,19 @@ class crawl_xygs(object):
 		s = re.sub(rex9, 'undefined', s)
 		s = re.sub(rex8, 'return cookie};', s)
 		s = s + '\n function ssss(){ return %s() }' %(functionName)
-		# rex4 = re.compile("window\['callP'.*'hantom'\]", flags = re.MULTILINE)
-		# s = s.replace("window['__p' + 'hantom' + 'as']", "undefined")
-		# s = s.replace("window['_p' + 'hantom']", "undefined")
-		# s = s.replace('window.headless', 'undefined')
-		# s = re.sub(rex4, 'undefined', s)
-		# s = s.replace("window['callP' + 'hantom']", "undefined")
+
 		print(s)
-		# ctx_s = ''
-		# with open('./jsbeautify.js', 'r') as f:
-		# 	for line in f.readlines():
-		# 		ctx_s+= line
-			
-		# ctx = execjs.compile(ctx_s)	
-		# ss = ctx.call('js_beautify', ss, 4, ' ')
-		# print(ss.replace("window['__p' + 'hantom' + 'as']", 'false'))
-		# s = '<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>外<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>国<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>(<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>地<div class="dp">5aSW5Zu9KOWcsOWMuinkvIHkuJo=</div>区)企业'
-		# ss = '<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>32<div class="dp">MzIwNTk0MDAwMTU3Nw==</div><div class="dp">MzIwNTk0MDAwMTU3Nw==</div>0594<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>0<div class="dp">MzIwNTk0MDAwMTU3Nw==</div><div class="dp">MzIwNTk0MDAwMTU3Nw==</div>00<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>15<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>7<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>7<div class="dp">MzIwNTk0MDAwMTU3Nw==</div>62'
 
-		# ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
-		# altItem_CN = re.sub(ctx, '', ss)
-		# print(altItem_CN)
-                
-	'''	
-	def mutil_process(self, company_list):
-		p = pool.Pool(10)
-		threads = [p.spawn(hack_in_gsxt(company, get_spell(company)) for company in company_list]
-		gevent.joinall(threads)
-	'''
-	
 if __name__ == '__main__':
-        xygs_spider = crawl_xygs()
-	# xygs_spider.get_all_info('东莞市全港五金模具有限公司', '/{939E3CA8F4F8CD25188C969AA78B712DB93EC3FEF27559CF6D613DA92E076DF9E36448DE7C708D653A668ED12C36CBC7BFE153C9A228A1048E3C8F2AA00EE91EE9F4E9F4E97F88D79B2000A9666A77E952C4C8564B564B477A677A676B9C35AD5A472DC08CD3F3EEB13E6892BBFDF7CAE61CC4DE82BFBD23BD061B20DAB0EFEDD0FC0649B3D986BD40A8F70A8D774A48BF4855485548-1527841788405}', get_spell('东莞市全港五金模具有限公司'))
-	# shift('asdsfs')
-        js = '''
-		<script>var x="Gk@charAt@23@@@Fk@onreadystatechange@replace@length@firstChild@attachEvent@challenge@reverse@8@@0xEDB88320@try@D@May@@@createElement@z@substr@@18@@addEventListener@e@@window@36@@55@@JgSe0upZ@charCodeAt@@function@while@@f@1500@0@809@fromCharCode@YBX@@toString@pathname@0xFF@DOMContentLoaded@@split@RegExp@1527058529@new@g@29@rOm9XFMtA3QKV7nYsPGT4lifyWwkq5vcjH2IdxUoCbhERLaz81DNB6@@toLowerCase@var@@document@@Wed@@3@Expires@@eval@a@cookie@@parseInt@@String@join@@@match@@@search@Array@@chars@Z@@@@else@@if@for@1@@@location@@vZ@@innerHTML@B@@@setTimeout@C@__jsl_clearance@false@@href@@6@@GMT@div@Y@catch@captcha@return@d@https@07@@Path@".replace(/@*$/,"").split("@"),y="2b l=1d(){44('3m.49=3m.1o+3m.37.8(/[\\?|&]4h-c/,\\'\\')',1h);2d.2m='46=24.1j|1i|'+(1d(){2b l=[(-~-~~~[]+[[]][1i]),((-~[]+[(-~{}<<-~{})]>>(-~{}<<-~{}))+[]+[]),(-~-~~~[]+[[]][1i])+[(+[])],[-~[]]+[-~[4b]],[-~[]]+(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{}))+[]+[[]][1i]),(-~-~~~[]+[[]][1i])+(-~-~~~[]+[[]][1i]),[(+[])],(-~-~~~[]+[[]][1i])+[-~[]],((-~{}+[(-~{}<<-~{})])/[(-~{}<<-~{})]+[]),((+!+[])+(+!+[])+(+!+[])+(+!+[])+[]+[[]][1i]),[-~[4b]],((+!+[])+(+!+[])+(+!+[])+(+!+[])-~-~~~[]+(+!+[])+(+!+[])+(+!+[])+[]+[[]][1i]),[-~[]]+((+!+[])+(+!+[])+(+!+[])+(+!+[])-~-~~~[]+(+!+[])+(+!+[])+(+!+[])+[]+[[]][1i]),[-~[]]+[((-~{}<<-~{})<<(-~{}<<-~{}))],[-~[]]+((-~{}+[(-~{}<<-~{})])/[(-~{}<<-~{})]+[]),[-~[]]+((+!+[])+(+!+[])+(+!+[])+(+!+[])+[]+[[]][1i]),[-~[]]+[(+[])],[((-~{}<<-~{})<<(-~{}<<-~{}))],(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{}))+[]+[[]][1i]),[-~[]],[-~[]]+((-~[]+[(-~{}<<-~{})]>>(-~{}<<-~{}))+[]+[]),[-~[]]+(-~-~~~[]+[[]][1i]),[-~[]]+[-~[]]];3i(2b 3k=1i;3k<l.9;3k++){l[3k]=['n',[((-~{}<<-~{})<<(-~{}<<-~{}))],'45',((-~[]+[(-~{}<<-~{})]>>(-~{}<<-~{}))+[]+[])+(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{}))+[]+[[]][1i]),(-~-~~~[]+[[]][1i]),'41','%','6',({}+[]+[[]][1i]).2(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{})))+(-~-~~~[]+[[]][1i]),(([(-~{}<<-~{})]+~~''>>(-~{}<<-~{}))+[]+[[]][1i]),'4f','i',((-~[]+[(-~{}<<-~{})]>>(-~{}<<-~{}))+[]+[]),'%',[!{}+[[]][1i]][1i].2((-~{}|-~-~~~[])),'3b','1l',[[(+!+[])+(+!+[])]/(+[])+[]+[]][1i].2((+!{}))+[-~[]],[!-[]+[]+[]][1i].2(~~''),'1','3o',((-~[(-~{}<<-~{})])/(+[])+[[]][1i]).2(2h),((-~{}+[(-~{}<<-~{})])/[(-~{}<<-~{})]+[])+[-~[4b]]][l[3k]]};4i l.31('')})()+';2i=2f, 3-j-10 4l:18:27 4d;4n=/;'};3h((1d(){h{4i !!15.12;}4g(13){4i 47;}})()){2d.12('20',l,47)}3f{2d.b('7',l)}",f=function(x,y){var a=0,b=0,c=0;x=x.split("");y=y||99;while((a=x.shift())&&(b=a.charCodeAt(0)-77.5))c=(Math.abs(b)<13?(b+48.5):parseInt(a,36))+y*c;return c},z=f(y.match(/\w/g).sort(function(x,y){return f(x)-f(y)}).pop());while(z++)try{eval(y.replace(/\\b\\w+\\b/g, function(y){return x[f(y,z)-1]||("_"+y)}));break}catch(_){}</script>
+	xygs_spider = crawl_xygs()
+	s = r'''
+		<script>var x="@0xEDB88320@else@Jun@@@@@setTimeout@false@a@attachEvent@try@k@@var@search@EHV@@@@function@1500@d@1@GMT@@684@@@pathname@e@chars@@JJqW@parseInt@@substr@charAt@f@@window@split@length@toString@createElement@0@onreadystatechange@8@@@@wk@location@@reverse@addEventListener@callP@@@@return@@challenge@_p@1528081560@0xFF@@X@JgSe0upZ@for@fromCharCode@Path@@@@Array@@vq@document@rOm9XFMtA3QKV7nYsPGT4lifyWwkq5vcjH2IdxUoCbhERLaz81DNB6@g@String@DOMContentLoaded@join@div@04@@match@innerHTML@new@@Expires@replace@@cookie@@__jsl_clearance@2@href@@@00@D@GM@toLowerCase@while@catch@@18@@hantom@06@@@Mon@@captcha@36@eval@@@charCodeAt@RegExp@https@if@@firstChild".replace(/@*$/,"").split("@"),y="g 1o=m(){9('13.1N=13.v+13.h.1H(/[\\?|&]2g-1d/,\\'\\')',n);1t.1J='1L=1f.s|L|'+(m(){1b ['z',[((+!G['17'+'2a'])<<-~-~~~!/!/)],'23',({}+[[]][L]).D(-~[]-~-~~~!/!/+(-~[]+[(+!!G['1e'+'2a'])])/[-~-~~~!/!/]),'e',([]%![]+[[]][L]).D(~~{})+[!/!/+[]+[]][L].D(-~~~!/!/-~~~!/!/)+[((+!G['17'+'2a'])+[-~~~!/!/-~~~!/!/]>>-~~~!/!/-~~~!/!/)+((+!G['17'+'2a'])+[-~~~!/!/-~~~!/!/]>>-~~~!/!/-~~~!/!/)],'12',({}+[[]][L]).D(-~[]-~-~~~!/!/+(-~[]+[(+!!G['1e'+'2a'])])/[-~-~~~!/!/])+[!![]+[[]][L]][L].D(-~![])+((+!G['17'+'2a'])+((+!G['17'+'2a'])<<-~-~~~!/!/)+[]+[]),'i',((+!G['17'+'2a'])+((+!G['17'+'2a'])<<-~-~~~!/!/)+[]+[]),'1i',((+!G['17'+'2a'])+((+!G['17'+'2a'])<<-~-~~~!/!/)+[]+[]),'1s',[((+!G['17'+'2a'])<<-~-~~~!/!/)],'e%',[(1M^-~[])],'22'].1y('')})()+';1G=2e, 1A-4-28 1A:2b:21 q;1m=/;'};2o((m(){d{1b !!G.16;}26(w){1b a;}})()){1t.16('1x',1o,a)}3{1t.c('M',1o)}",f=function(x,y){var a=0,b=0,c=0;x=x.split("");y=y||99;while((a=x.shift())&&(b=a.charCodeAt(0)-77.5))c=(Math.abs(b)<13?(b+48.5):parseInt(a,36))+y*c;return c},z=f(y.match(/\w/g).sort(function(x,y){return f(x)-f(y)}).pop());while(z++)try{eval(y.replace(/\b\w+\b/g, function(y){return x[f(y,z)-1]||("_"+y)}));break}catch(_){}</script>		
 	'''
-        print('s')
-        print(xygs_spider.clear_and_formateJs(js))
-
-
-
-# js = r'''
-# <script>var x="split@0xFF@window@X@0@@challenge@@innerHTML@onreadystatechange@Path@B0@GMT@div@1@else@charAt@replace@toString@@Expires@@4@pathname@34@8@createElement@z@JgSe0upZ@3@@kn@cookie@@fromCharCode@@@555@@2@@new@WU@@match@substr@Cn@6i@@firstChild@join@href@rOm9XFMtA3QKV7nYsPGT4lifyWwkq5vcjH2IdxUoCbhERLaz81DNB6@18@parseInt@0xEDB88320@search@charCodeAt@@captcha@@@Mon@attachEvent@1500@__jsl_clearance@@@2F@@false@1527474814@@try@@function@@@Array@length@return@@eval@setTimeout@addEventListener@reverse@@for@var@chars@1sW@@@@@a@33@f@@catch@while@@headless@if@g@03@@String@36@@@@DOMContentLoaded@@@e@location@@d@28@B@RegExp@May@@toLowerCase@@https@document".replace(/@*$/,"").split("@"),y="1t A=1g(){1o('1V.Q=1V.o+1V.V.i(/[\\?|&]10-7/,\\'\\')',15);28.x='16=1c.C|5|'+(1g(){1t 17=[1g(A){1l A},1g(17){1l 17},(1g(){1t A=28.r('e');A.9='<1A Q=\\'/\\'>1h</1A>';A=A.O.Q;1t 17=A.J(/27?:\\/\\//)[5];A=A.K(17.1k).25();1l 1g(17){1s(1t 1h=5;1h<17.1k;1h++){17[1h]=A.h(17[1h])};1l 17.P('')}})(),1g(A){1l 1n('1M.z('+A+')')}],1h=['w',(E+[]+[]),'M',([]-{}+[]).h(-~(+!{})),[((+!!!3.1H)-~[((+!!!3.1H)|-~(+!!!3.1H))+n]+[]+[[]][5])+((+[])+[]+[])],'1v',[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'19%',(E+[]+[]),'21',[(n+[]+[[]][5])],'4',[(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])+((+[])+[]+[])],'s',(-~{}/(+!{})+[[]][5]).h(E+(-~(+!{})+[~~{}])/[(-~[]<<-~[])]),'H',[[-~[((+!!!3.1H)|-~(+!!!3.1H))+n]]+(-~[]+(-~!/!/<<-~(+!{})-~(+!{}))+[]+[[]][5]),(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])+((+[])+[]+[])],[(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'L',(E+[]+[]),[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],(E+[]+[]),'c',[(((+!!!3.1H)|E)+[[]][5])+(((+!!!3.1H)|-~(+!!!3.1H))+n+[[]][5])],'u',[((-~[]+[(-~[]<<-~[])])/[(-~[]<<-~[])]+[]+[[]][5])+[-~[((+!!!3.1H)|-~(+!!!3.1H))+n]]]];1s(1t A=5;A<1h.1k;A++){1h[A]=17[[f,5,f,5,u,f,u,f,5,f,E,f,u,f,5,f,u,E,f,5,u,5,f,u,f,u][A]](1h[A])};1l 1h.P('')})()+';l=13, 20-23-S 1K:1B:p d;b=/;'};1I((1g(){1e{1l !!3.1p;}1E(1U){1l 1b;}})()){28.1p('1R',A,1b)}g{28.14('a',A)}",f=function(x,y){var a=0,b=0,c=0;x=x.split("");y=y||99;while((a=x.shift())&&(b=a.charCodeAt(0)-77.5))c=(Math.abs(b)<13?(b+48.5):parseInt(a,36))+y*c;return c},z=f(y.match(/\w/g).sort(function(x,y){return f(x)-f(y)}).pop());while(z++)try{eval(y.replace(/\b\w+\b/g, function(y){return x[f(y,z)-1]||("_"+y)}));break}catch(_){}</script>
-# 	'''
-# assert 1 > 5, print(clear_and_formateJs_test(jst = js))
-# cookies 可以复用！！
+	xygs_spider.clear_and_formateJs(s)	
+	# rows = getDataFromEx()
+	# xygs_spider.hack_in_gsxt('祐鼎（福建）光电材料有限公司', get_spell('祐鼎（福建）光电材料有限公司'))
+	# p = pool.Pool(10)
+	# threads = [p.spawn(crawl_xygs().hack_in_gsxt(company, get_spell(company))) for company in rows[1:10]]
+	# gevent.joinall(threads)
+	# xygs_spider.get_all_info('东莞市全港五金模具有限公司', '/{939E3CA8F4F8CD25188C969AA78B712DB93EC3FEF27559CF6D613DA92E076DF9E36448DE7C708D653A668ED12C36CBC7BFE153C9A228A1048E3C8F2AA00EE91EE9F4E9F4E97F88D79B2000A9666A77E952C4C8564B564B477A677A676B9C35AD5A472DC08CD3F3EEB13E6892BBFDF7CAE61CC4DE82BFBD23BD061B20DAB0EFEDD0FC0649B3D986BD40A8F70A8D774A48BF4855485548-1527841788405}', get_spell('东莞市全港五金模具有限公司'))
 
