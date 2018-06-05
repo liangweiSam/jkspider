@@ -215,7 +215,7 @@ def getDataFromEx():
 	sheet1 = workBook.sheet_by_name(sheet1_name)
 	rows = sheet1.col_values(0)[1:]
 	new_rows = []
-	for i in rows:
+	for i in rows[349:400]:
 		if re.search('.+?(公司|厂|加油站|店|集团|所|中心|院)', i) is not None:
 			s = re.search('.+?(公司|厂|加油站|店|集团|所|中心|院)', i).group(0).strip()			
 			new_rows.append(s)
@@ -305,7 +305,7 @@ class crawl_xygs(object):
 		self.mainContent_url_list = ['allAlterInfoUrl', 'allShareHolderDetailInfoUrl', 'allPunishmentInfoUrl', 'allOtherLicenceInfoUrl', 'allMortRegInfoUrl', 'allStakQualitInfoUrl', 'allGtAlterInfoUrl', 'branchUrl']
 		p = ProxyPool()
 		init_ip = p.get_IP('http')
-		ip = init_ip['ip'] + ':' + init_ip['ip_port']
+		ip = init_ip['ip'] + ':' + str(init_ip['port'])
 		self.proxy = {
 					'http' : ip,
 					'https' : ip,
@@ -821,6 +821,7 @@ class crawl_xygs(object):
 			raise MyException('%s---列入经营异常名录信息---%s' %(e, company))
 			# print('---列入经营异常名录信息---')
 			# print(e)
+
 	@logger
 	def get_mortRegInfoUrl(self, company, province='www'):
 		url = 'http://%s.gsxt.gov.cn' %(province)+self.mainContent_url['allMortRegInfoUrl'] 
@@ -1042,11 +1043,10 @@ class crawl_xygs(object):
 		# assert 1>5, 
 		response = self.session.get(url, headers = self.headers, proxies = self.proxy)
 		try:
-			if self.is_json(response.json()):
+			if self.is_json(response.text):
 				datas = response.json()['data']
 				ctx = re.compile(r'<(span|div) class="dp">(.*?)</(span|div)>')
 				print('关键人物:')
-				
 				names = []
 				for data in datas:
 					name_dict = {}
@@ -1057,6 +1057,7 @@ class crawl_xygs(object):
 					print(name_dict)
 					names.append(name_dict)
 				self.insert_into_db('keyperson_info', names)
+				print(names)
 		except Exception as e:
 			raise MyException('%s---关键人物--- %s' %(e, company))
 	
@@ -1584,7 +1585,7 @@ class crawl_xygs(object):
 			raise MyException('---爬取全部信息---%s' %(e))
 
 	@logger
-	def hack_in_gsxt(self, searchword ,province):
+	def hack_in_gsxt(self, searchword, province):
 		# headers = {
 		# 		'User-Agent' : 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50',
 		# 		'Referer' : 'http://%s.gsxt.gov.cn/' %(province)
@@ -1613,7 +1614,8 @@ class crawl_xygs(object):
 				model = 3
 
 			url = 'http://jiyanapi.c2567.com/shibie?user=%s&pass=%s&gt=%s&challenge=%s&referer=%s&return=json&model=%s&format=utf8' %(user, password, gt, challenge, host, model)		
-			validate_data = self.session.get(url, headers = self.headers, proxies = self.proxy).json()
+			validate_data = self.session.get(url, headers = self.headers)
+			validate_data = validate_data.json()
 			status = ''
 			if validate_data['status'] == 'ok':
 				validate = validate_data['validate']
@@ -1758,19 +1760,16 @@ class crawl_xygs(object):
 		s = re.sub(rex9, 'undefined', s)
 		s = re.sub(rex8, 'return cookie};', s)
 		s = s + '\n function ssss(){ return %s() }' %(functionName)
-
 		print(s)
+	
 
 if __name__ == '__main__':
 	xygs_spider = crawl_xygs()
-	s = r'''
-		<script>var x="@0xEDB88320@else@Jun@@@@@setTimeout@false@a@attachEvent@try@k@@var@search@EHV@@@@function@1500@d@1@GMT@@684@@@pathname@e@chars@@JJqW@parseInt@@substr@charAt@f@@window@split@length@toString@createElement@0@onreadystatechange@8@@@@wk@location@@reverse@addEventListener@callP@@@@return@@challenge@_p@1528081560@0xFF@@X@JgSe0upZ@for@fromCharCode@Path@@@@Array@@vq@document@rOm9XFMtA3QKV7nYsPGT4lifyWwkq5vcjH2IdxUoCbhERLaz81DNB6@g@String@DOMContentLoaded@join@div@04@@match@innerHTML@new@@Expires@replace@@cookie@@__jsl_clearance@2@href@@@00@D@GM@toLowerCase@while@catch@@18@@hantom@06@@@Mon@@captcha@36@eval@@@charCodeAt@RegExp@https@if@@firstChild".replace(/@*$/,"").split("@"),y="g 1o=m(){9('13.1N=13.v+13.h.1H(/[\\?|&]2g-1d/,\\'\\')',n);1t.1J='1L=1f.s|L|'+(m(){1b ['z',[((+!G['17'+'2a'])<<-~-~~~!/!/)],'23',({}+[[]][L]).D(-~[]-~-~~~!/!/+(-~[]+[(+!!G['1e'+'2a'])])/[-~-~~~!/!/]),'e',([]%![]+[[]][L]).D(~~{})+[!/!/+[]+[]][L].D(-~~~!/!/-~~~!/!/)+[((+!G['17'+'2a'])+[-~~~!/!/-~~~!/!/]>>-~~~!/!/-~~~!/!/)+((+!G['17'+'2a'])+[-~~~!/!/-~~~!/!/]>>-~~~!/!/-~~~!/!/)],'12',({}+[[]][L]).D(-~[]-~-~~~!/!/+(-~[]+[(+!!G['1e'+'2a'])])/[-~-~~~!/!/])+[!![]+[[]][L]][L].D(-~![])+((+!G['17'+'2a'])+((+!G['17'+'2a'])<<-~-~~~!/!/)+[]+[]),'i',((+!G['17'+'2a'])+((+!G['17'+'2a'])<<-~-~~~!/!/)+[]+[]),'1i',((+!G['17'+'2a'])+((+!G['17'+'2a'])<<-~-~~~!/!/)+[]+[]),'1s',[((+!G['17'+'2a'])<<-~-~~~!/!/)],'e%',[(1M^-~[])],'22'].1y('')})()+';1G=2e, 1A-4-28 1A:2b:21 q;1m=/;'};2o((m(){d{1b !!G.16;}26(w){1b a;}})()){1t.16('1x',1o,a)}3{1t.c('M',1o)}",f=function(x,y){var a=0,b=0,c=0;x=x.split("");y=y||99;while((a=x.shift())&&(b=a.charCodeAt(0)-77.5))c=(Math.abs(b)<13?(b+48.5):parseInt(a,36))+y*c;return c},z=f(y.match(/\w/g).sort(function(x,y){return f(x)-f(y)}).pop());while(z++)try{eval(y.replace(/\b\w+\b/g, function(y){return x[f(y,z)-1]||("_"+y)}));break}catch(_){}</script>		
-	'''
-	xygs_spider.clear_and_formateJs(s)	
+
 	# rows = getDataFromEx()
-	# xygs_spider.hack_in_gsxt('祐鼎（福建）光电材料有限公司', get_spell('祐鼎（福建）光电材料有限公司'))
 	# p = pool.Pool(10)
-	# threads = [p.spawn(crawl_xygs().hack_in_gsxt(company, get_spell(company))) for company in rows[1:10]]
+	# threads = [p.spawn(crawl_xygs().hack_in_gsxt(company, get_spell(company))) for company in rows]
 	# gevent.joinall(threads)
-	# xygs_spider.get_all_info('东莞市全港五金模具有限公司', '/{939E3CA8F4F8CD25188C969AA78B712DB93EC3FEF27559CF6D613DA92E076DF9E36448DE7C708D653A668ED12C36CBC7BFE153C9A228A1048E3C8F2AA00EE91EE9F4E9F4E97F88D79B2000A9666A77E952C4C8564B564B477A677A676B9C35AD5A472DC08CD3F3EEB13E6892BBFDF7CAE61CC4DE82BFBD23BD061B20DAB0EFEDD0FC0649B3D986BD40A8F70A8D774A48BF4855485548-1527841788405}', get_spell('东莞市全港五金模具有限公司'))
+
+	# xygs_spider.get_all_info('苏州士林电机有限公司', '/{FA7055469D16A4CB7162FF74CE6518C3D0D0AA109B9B3021048F544747E904178A8A2130159EE48B5388E73F45D8A229D60F3A27CBC6C8EAE7D2E6C4C9E080BC2AB02AB02A16801ABD27BD27BD27BD27BD27BD2BB127573D9A0008D9A40ACB46FC572A75E833890CABB2158F334926FE8484F943C6DF45DF45DF45-1528163866960}', province = 'js')	
 
