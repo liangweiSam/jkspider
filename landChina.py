@@ -10,6 +10,7 @@ import user_agent_Pool
 import random
 import urllib.request
 import csv
+import codecs
 
 
 class landChina(object):
@@ -68,10 +69,10 @@ class landChina(object):
 		print('正在爬取第1页...')
 		for i in content[0].xpath('.//tr')[1:]:
 			href = i.xpath('td[3]/a/@href')[0]
-			total_list.append(href)
+			# total_list.append(href)
 
 		# 后续的href
-		for i in range(1, int(total_p)):
+		for i in range(10, int(total_p)):
 			print('正在爬取第%s页...' %(i+1))
 			sleep(random.random()*2)
 			start_p = i+1
@@ -88,6 +89,7 @@ class landChina(object):
 				total_list.append(href)
 				# print(href[0])
 				# self.details(href[0])
+		
 		with open('land_china/%s-%s-%s.txt' %('company', str_date, end_date), 'w') as f:
 			f.write(str(total_list))
 
@@ -96,6 +98,7 @@ class landChina(object):
 		gevent.joinall(threads)
 
 	def details(self, details_h, times = 0):
+
 		sleep(random.random()*2)
 		url = 'http://www.landchina.com/%s' %(details_h)
 		headers = ['原土地使用权人', '现土地使用权人', '宗地标识', '宗地编号', '宗地座落', '所在行政区', '土地面积(公顷)', '土地用途', '土地使用权类型', '土地使用年限',
@@ -139,22 +142,27 @@ class landChina(object):
 					)
 
 			try:
-				with open('land_china/land_details.csv', 'r') as f:
+				with open('land_china/land_details2.csv', 'r', encoding = 'utf_8_sig') as f:
 					readers = csv.reader(f)
 					for row in readers:
 						if row != None:
 							flag2 = 1
 							break	
 			except Exception as e:
-				print(e)
+				print('打开文件失败 %s..' %e)
 				pass	
-					
-			with open('land_china/land_details.csv', 'a+', encoding = 'utf-8') as f:
-				f_csv = csv.writer(f)
-				if flag2 == 0:
-					f_csv.writerow(headers)
-				f_csv.writerow(data)
-				print('%s数据写入...' %(data[1]))
+
+			try:
+				with open('land_china/land_details2.csv', 'a+', encoding = 'utf_8_sig', newline = '') as f:
+					f_csv = csv.writer(f)
+					if flag2 == 0:
+						f_csv.writerow(headers)
+					f_csv.writerow(data)
+					print('%s数据写入...' %(data[1].encode('utf-8').decode('utf-8', 'ignore')))
+			except Exception as e:
+				print(e)
+				pass		
+
 		else:
 			if times < 10:
 				times+= 1
@@ -171,4 +179,4 @@ if __name__ == '__main__':
 	lc = landChina()
 	# print(value, ..., sep, end, file, flush) unquote('▓有限公司▓')
 	# print(lc.gbk_encode(''))
-	lc.get_data('有限公司', '2017-1-1', '2017-12-31')
+	lc.get_data('有限公司', '2016-1-1', '2016-12-31')
